@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BRAWL STARS // RANKED DRAFT AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- Top Arcade Ranked Header -->
+  <header class="top-bar">
+    <div class="brand-block">
+      <div class="ranked-emblem">★</div>
+      <div>
+        <h1 class="brawl-title">RANKED DRAFT AI</h1>
+        <div class="status-line">
+          <span id="api-status-dot" class="dot online"></span>
+          <span id="model-status-text">Connecting to Raspberry Pi 5 Engine...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>MODE</label>
+        <select id="mode-select" class="brawl-select"></select>
+      </div>
+      <div class="control-group">
+        <label>MAP</label>
+        <select id="map-select" class="brawl-select"></select>
+      </div>
+      <div class="control-group">
+        <label>FIRST PICK TEAM</label>
+        <button id="first-pick-toggle" class="brawl-btn blue-toggle" data-fp="true">
+          BLUE (ALLY) 1ST PICK
+        </button>
+      </div>
+      <button id="reset-draft-btn" class="brawl-btn crimson">RESET DRAFT</button>
+    </div>
+  </header>
+
+  <!-- Snake Draft Order Timeline Tracker (1 -> 2,3 -> 4,5 -> 6) & Ban Phase Bar -->
+  <section class="timeline-and-bans">
+    <div class="timeline-panel">
+      <div class="panel-label">SNAKE DRAFT TIMELINE (CLICK SLOT OR USE AUTO-FLOW)</div>
+      <div id="snake-timeline" class="snake-steps"></div>
+    </div>
+
+    <div class="ban-panel">
+      <div class="panel-label">BANNED BRAWLERS (UP TO 6)</div>
+      <div id="ban-slots" class="ban-slots"></div>
+    </div>
+  </section>
+
+  <!-- Main 3-Column Brawl Stars Ranked Draft Stage -->
+  <main class="draft-arena">
+    <!-- Left Column: Blue Team (Ally) & Red Team (Enemy) Battle Cards -->
+    <section class="teams-column">
+      <div class="team-box blue-team">
+        <div class="team-header">
+          <span>BLUE TEAM (ALLIES)</span>
+          <span id="blue-pick-badge" class="pick-order-tag">1ST PICK</span>
+        </div>
+        <div id="ally-slots" class="team-slots"></div>
+      </div>
+
+      <div class="vs-divider"><span>VS</span></div>
+
+      <div class="team-box red-team">
+        <div class="team-header">
+          <span>RED TEAM (ENEMIES)</span>
+          <span id="red-pick-badge" class="pick-order-tag">2ND PICK</span>
+        </div>
+        <div id="enemy-slots" class="team-slots"></div>
+      </div>
+    </section>
+
+    <!-- Center Column: Searchable Brawler Portrait Grid + Quick Assign Mode -->
+    <section class="roster-column">
+      <div class="roster-toolbar">
+        <div class="assign-mode-tabs">
+          <button class="mode-tab active" data-target="auto">AUTO TIMELINE</button>
+          <button class="mode-tab ban-tab" data-target="ban">ASSIGN BAN</button>
+          <button class="mode-tab blue-tab" data-target="ally">BLUE PICK</button>
+          <button class="mode-tab red-tab" data-target="enemy">RED PICK</button>
+        </div>
+        <input type="text" id="brawler-search" class="brawl-search" placeholder="SEARCH BRAWLER..." />
+      </div>
+
+      <div id="brawler-grid" class="brawler-grid"></div>
+    </section>
+
+    <!-- Right Column: Top 10 AI Recommendations Panel -->
+    <section class="recommendations-column">
+      <div class="rec-header">
+        <div>
+          <h2 class="brawl-title">TOP 10 AI PICKS</h2>
+          <p id="rec-subtitle" class="rec-sub">Evaluating Snake Slot #1...</p>
+        </div>
+      </div>
+
+      <div id="recommendations-list" class="rec-list"></div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
