@@ -885,6 +885,21 @@ button, .snake-step, .ban-slot, .pick-slot, .brawler-tile, .mini-slot {
   color: #c2cdf0;
 }
 
+.stat-chip.chip-pick {
+  background: rgba(255, 201, 40, 0.16);
+  color: var(--gold);
+}
+
+.low-data-notice {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ffd875;
+  background: rgba(255, 201, 40, 0.12);
+  border: 1px solid rgba(255, 201, 40, 0.35);
+  border-radius: 10px;
+  padding: 7px 10px;
+}
+
 .rec-pick-btn {
   padding: 8px 11px;
   font-size: 12px;

@@ -10,6 +10,7 @@ const CLEAN_BASE_URL = PI5_API_BASE_URL.trim().replace(/\/+$/, "");
 const STATE = {
   brawlers: [],
   mapsByMode: {},
+  mapMatchCounts: {},
   mode: "gemGrab",
   map: "Hard Rock Mine",
   isFirstPickTeam: true,
@@ -115,6 +116,7 @@ async function loadMetadata() {
     }));
 
     STATE.mapsByMode = data.maps_by_mode || {};
+    STATE.mapMatchCounts = data.map_match_counts || {};
 
     const modeSelect = document.getElementById("mode-select");
     modeSelect.innerHTML = "";
@@ -158,7 +160,12 @@ function populateMapsForMode() {
   maps.forEach((mp) => {
     const opt = document.createElement("option");
     opt.value = mp;
-    opt.textContent = mp;
+    const cnt = STATE.mapMatchCounts[mp];
+    if (typeof cnt === "number") {
+      opt.textContent = cnt > 0 ? `${mp} (${cnt})` : `${mp} (0 • off-rotation)`;
+    } else {
+      opt.textContent = mp;
+    }
     mapSelect.appendChild(opt);
   });
   STATE.map = maps[0] || "";
@@ -479,7 +486,23 @@ async function requestRecommendations() {
     if (reqId !== latestRequestId) return;
     spinner.classList.add("hidden");
 
+    const mapMatches = typeof data.map_matches === "number" ? data.map_matches : STATE.mapMatchCounts[STATE.map];
+    if (typeof mapMatches === "number") {
+      document.getElementById("rec-subtitle").textContent =
+        `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map} (${mapMatches} pro games)`;
+    }
+
     recList.innerHTML = "";
+    if (typeof mapMatches === "number" && mapMatches < 15) {
+      const notice = document.createElement("div");
+      notice.className = "low-data-notice";
+      notice.textContent =
+        mapMatches === 0
+          ? "0 live Ranked games on this map (likely off-rotation) — using mode meta."
+          : `Only ${mapMatches} pro games on this map so far — blending with mode meta.`;
+      recList.appendChild(notice);
+    }
+
     const recs = data.recommendations || [];
     if (!recs.length) {
       recList.innerHTML = `<div class="empty-state">No available brawlers left to recommend.</div>`;
@@ -528,7 +551,11 @@ async function requestRecommendations() {
 
       const statsRow = document.createElement("div");
       statsRow.className = "rec-stats-row";
+      const pickChip = typeof rec.pick_rate === "number" && rec.pick_rate > 0
+        ? `<span class="stat-chip chip-pick">Pick ${rec.pick_rate}%</span>`
+        : "";
       statsRow.innerHTML = `
+        ${pickChip}
         <span class="stat-chip">Map ${rec.map_win_rate}%</span>
         <span class="stat-chip">Syn ${rec.synergy_score}%</span>
         <span class="stat-chip">Ctr ${rec.counter_score}%</span>
