@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f26" />
+  <title>BrawlVault • Brawl Stars AI Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css?v=7" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Site Navigation -->
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="../home/" class="nav-brand">
+        <span class="nav-star" aria-hidden="true">★</span>
+        <span class="brawl-title nav-logo">BRAWLVAULT</span>
+      </a>
+      <div class="nav-links">
+        <a href="../home/" class="nav-link active" aria-current="page">Home</a>
+        <a href="../drafting/" class="nav-link">Drafting</a>
+        <a href="../upgrade/" class="nav-link">Upgrade Guide</a>
+        <a href="../tierlist/" class="nav-link">Tier List</a>
+        <a href="../lookup/" class="nav-link">Player / Club</a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="home-hero">
+      <div class="home-hero-badge">
+        <span id="home-status-dot" class="dot online"></span>
+        <span id="home-status-text">Connecting to BrawlVault Live AI Engine...</span>
+      </div>
+      <h1 class="brawl-title home-title">BRAWLVAULT</h1>
+      <p class="home-subtitle">
+        Live Brawl Stars Ranked Drafting AI, Power 11 Upgrade Guide, Pro Meta Tier List, and Player/Club Ratings — powered 24/7 by live leaderboard data.
+      </p>
+
+      <!-- Connect Your Tag Once (Shared Across All Tools) -->
+      <div class="home-tag-box">
+        <div class="home-tag-label">CONNECT YOUR BRAWL STARS ID (AUTO-SYNCED ACROSS ALL TABS)</div>
+        <form id="home-tag-form" class="tag-input-row">
+          <input
+            type="text"
+            id="home-tag-input"
+            class="search-input tag-field"
+            placeholder="Enter Player Tag (e.g. #2PP)"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+          />
+          <button type="submit" id="home-tag-btn" class="btn btn-gold">Connect ID</button>
+          <button type="button" id="home-tag-clear" class="btn btn-danger hidden">Clear</button>
+        </form>
+        <div id="home-player-pill" class="connected-player-pill hidden"></div>
+      </div>
+
+      <div class="home-actions">
+        <a href="../drafting/" class="btn btn-gold home-cta">Open Ranked Drafting →</a>
+        <a href="../tierlist/" class="btn btn-ghost home-cta">View AI Tier List</a>
+      </div>
+    </section>
+
+    <!-- Tools Grid -->
+    <section class="home-grid">
+      <a href="../drafting/" class="home-card home-card-featured">
+        <div class="home-card-top">
+          <span class="home-card-icon">⚔</span>
+          <span class="home-card-tag">LIVE AI</span>
+        </div>
+        <h2 class="brawl-title home-card-title">Ranked Drafting</h2>
+        <p class="home-card-desc">
+          Real-time Top 10 picks with snake draft order, bans, counters, synergies — plus a <strong>Power 11 filter</strong> for your own account.
+        </p>
+        <span class="home-card-link">Launch Drafting →</span>
+      </a>
+
+      <a href="../upgrade/" class="home-card home-card-featured">
+        <div class="home-card-top">
+          <span class="home-card-icon">⬆</span>
+          <span class="home-card-tag tag-gold">PRO BUILDS</span>
+        </div>
+        <h2 class="brawl-title home-card-title">Upgrade Guide</h2>
+        <p class="home-card-desc">
+          See the best brawlers to max to Level 11 next, exact Coin &amp; Power Point costs, and the most-picked pro Star Powers, Gadgets, and Gears.
+        </p>
+        <span class="home-card-link">Open Upgrade Guide →</span>
+      </a>
+
+      <a href="../tierlist/" class="home-card home-card-featured">
+        <div class="home-card-top">
+          <span class="home-card-icon">🏆</span>
+          <span class="home-card-tag tag-blue">S – D TIERS</span>
+        </div>
+        <h2 class="brawl-title home-card-title">AI Tier List</h2>
+        <p class="home-card-desc">
+          Current AI-ranked tier list across Overall Ranked, every Game Mode, and every active Map — tap any brawler for synergies &amp; builds.
+        </p>
+        <span class="home-card-link">Browse Tier List →</span>
+      </a>
+
+      <a href="../lookup/" class="home-card home-card-featured">
+        <div class="home-card-top">
+          <span class="home-card-icon">🔍</span>
+          <span class="home-card-tag tag-purple">RATED / 10</span>
+        </div>
+        <h2 class="brawl-title home-card-title">Player &amp; Club Lookup</h2>
+        <p class="home-card-desc">
+          Inspect any player's trophies, win rate, W/L ratio, Star Player %, Lv 11 depth, or any club roster — with a full score out of 10.
+        </p>
+        <span class="home-card-link">Search Players &amp; Clubs →</span>
+      </a>
+    </section>
+  </div>
+
+  <script src="../shared.js?v=7"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("home-tag-form");
+      const input = document.getElementById("home-tag-input");
+      const btn = document.getElementById("home-tag-btn");
+      const clearBtn = document.getElementById("home-tag-clear");
+      const pill = document.getElementById("home-player-pill");
+
+      function showPlayer(p) {
+        pill.className = "connected-player-pill";
+        pill.innerHTML = `
+          <span><strong>${BV.esc(p.name)}</strong> (${BV.esc(p.tag)})</span>
+          <span>🏆 ${p.trophies.toLocaleString()}</span>
+          <span class="lv11-badge">LV 11: ${p.power11_count}</span>
+          <span class="rating-mini">${p.rating.score}/10</span>
+        `;
+        clearBtn.classList.remove("hidden");
+      }
+
+      async function connectTag(raw, force = false) {
+        const norm = BV.normalizeTag(raw);
+        if (!norm) return;
+        input.value = norm;
+        btn.disabled = true;
+        btn.textContent = "Loading...";
+        try {
+          BV.setSavedTag(norm);
+          const profile = await BV.fetchPlayer(norm, force);
+          BV.setCachedProfile(profile);
+          showPlayer(profile);
+        } catch (err) {
+          pill.className = "connected-player-pill pill-error";
+          pill.textContent = err.message || "Could not load player tag.";
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Connect ID";
+        }
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        connectTag(input.value, true);
+      });
+
+      clearBtn.addEventListener("click", () => {
+        BV.setSavedTag("");
+        input.value = "";
+        pill.className = "connected-player-pill hidden";
+        clearBtn.classList.add("hidden");
+      });
+
+      const saved = BV.getSavedTag();
+      if (saved) {
+        input.value = saved;
+        connectTag(saved, false);
+      }
+
+      (async () => {
+        try {
+          const meta = await BV.apiFetch("/api/v1/metadata");
+          const s = meta.stats || {};
+          document.getElementById("home-status-dot").className = s.api_status?.ok === false ? "dot warn" : "dot online";
+          document.getElementById("home-status-text").textContent =
+            `Live AI Online • ${(s.total_matches || 0).toLocaleString()} Pro Matches • ${(s.tracked_top_players || 0).toLocaleString()} Pros`;
+        } catch {
+          document.getElementById("home-status-dot").className = "dot warn";
+          document.getElementById("home-status-text").textContent = "Connecting to BrawlVault AI Engine...";
+        }
+      })();
+    });
+  </script>
+</body>
+</html>
