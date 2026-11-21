@@ -113,11 +113,16 @@ function generatePlayerCoaching(p) {
       metrics.push({ label: `Next ${Math.min(3, nearMax.length)} Cost`, value: `🪙 ${top3Cost.coins.toLocaleString()}` });
     }
 
+    const cardTitle =
+      p.power11_count >= 35
+        ? (incompleteLv11.length ? `Complete Missing Kits on ${incompleteLv11.length} Lv 11 Brawlers` : `Keep Your Maxed Roster Updated (${p.power11_count} Lv 11s)`)
+        : `Grow Maxed Roster: ${p.power11_count} → ${targetP11} Level 11s`;
+
     tips.push({
       impact: rosterItem.gap,
       category: "LV 11 ROSTER DEPTH",
       tag: rosterItem.gap >= 0.7 ? "HIGH IMPACT" : "QUICK WIN",
-      title: `Grow Maxed Roster: ${p.power11_count} → ${targetP11} Level 11s`,
+      title: cardTitle,
       summary: `Currently ${rosterItem.score}/${rosterItem.max} pts (${p.power11_count} Lv11, ${lv10s.length} Lv10, ${lv9s.length} Lv9, ${lvLow.length} Lv1–8).`,
       metrics,
       steps,
@@ -254,32 +259,52 @@ function generatePlayerCoaching(p) {
   const near1k = brawlers
     .filter((b) => b.trophies >= 750 && b.trophies < 1000)
     .sort((a, b) => b.trophies - a.trophies);
+  const under1k = brawlers
+    .filter((b) => b.trophies < 1000)
+    .sort((a, b) => b.trophies - a.trophies);
   if (carryItem.gap >= 0.1) {
     const steps = [];
-    if (near1k.length) {
-      const list = near1k.slice(0, 4).map((b) => `${b.name} (${b.trophies} 🏆 — ${1000 - b.trophies} away)`).join(" • ");
-      steps.push(`Closest to 1,000 🏆 (Max Tier): ${list}.`);
+    const maxed1kPool = p.max_tier_brawlers >= 20;
+
+    if (maxed1kPool) {
+      const leaders = brawlers.slice(0, 3).map((b) => `${b.name} (${b.trophies.toLocaleString()} 🏆)`).join(" • ");
+      steps.push(`Your 1,000+ trophy pool is already maxed (${p.max_tier_brawlers} brawlers at 1k+, led by ${leaders}).`);
+      steps.push(`The remaining +${carryItem.gap.toFixed(2)} pts in this category come purely from Star Player rate (currently ${bs.star_player_rate != null ? `${bs.star_player_rate}%` : "N/A"} across recent team games — 35%+ maxes the score).`);
+      steps.push(`To raise Star Player %, play high-impact carry mids/snipers, keep deaths low, and lead objective damage (Heist Safe / Hot Zone % / Gem Carrier control).`);
     } else {
-      const topB = brawlers.slice(0, 3).map((b) => `${b.name} (${b.trophies} 🏆, Lv ${b.power})`).join(" • ");
-      steps.push(`No brawlers above 750 🏆 yet. Focus on your top 3 mains (${topB || "none"}) on their best maps from the Tier List.`);
+      if (near1k.length) {
+        const list = near1k.slice(0, 4).map((b) => `${b.name} (${b.trophies} 🏆 — ${1000 - b.trophies} away)`).join(" • ");
+        steps.push(`Closest to 1,000 🏆 (Max Tier): ${list}.`);
+      } else if (p.max_tier_brawlers > 0 && under1k.length) {
+        const nextUp = under1k.slice(0, 3).map((b) => `${b.name} (${b.trophies} 🏆, Lv ${b.power})`).join(" • ");
+        steps.push(`You already have ${p.max_tier_brawlers} brawlers at 1,000+ 🏆. Highest candidates under 1k to push next: ${nextUp}.`);
+      } else if (under1k.length) {
+        const topB = under1k.slice(0, 3).map((b) => `${b.name} (${b.trophies} 🏆, Lv ${b.power})`).join(" • ");
+        steps.push(`No brawlers at 750+ 🏆 yet. Focus on pushing your top mains (${topB}) on their best maps from the Tier List.`);
+      }
+
+      if (bs.star_player_rate != null) {
+        steps.push(
+          bs.star_player_rate < 20
+            ? `Star Player rate is ${bs.star_player_rate}% (${bs.star_players || 0} Star Players). Focus on surviving your lane, holding objective pressure, and punishing over-extensions instead of trading 1-for-1.`
+            : `Strong ${bs.star_player_rate}% Star Player rate (${bs.star_players || 0} awards) — push toward 35% while expanding your 1k+ trophy pool to 20 brawlers.`
+        );
+      }
+      steps.push(`Reaching 20 brawlers at 1,000+ 🏆 (${Math.max(0, 20 - p.max_tier_brawlers)} more) and 35% Star Player rate maxes this entire 1.50-pt category.`);
     }
-    if (bs.star_player_rate != null) {
-      steps.push(
-        bs.star_player_rate < 20
-          ? `Star Player rate is ${bs.star_player_rate}% (${bs.star_players || 0} Star Players). Focus on surviving your lane, holding objective pressure (Safe damage / Gem control / Hot Zone %), and punishing over-extensions instead of trading 1-for-1.`
-          : `Strong ${bs.star_player_rate}% Star Player rate (${bs.star_players || 0} awards) — pair up with a coordinated duo/trio so your carry games turn into consistent wins.`
-      );
-    }
-    steps.push(`Reaching 20 brawlers at 1,000+ 🏆 and ~30% Star Player rate maxes this entire 1.50-pt category.`);
+
+    const carryTitle = maxed1kPool
+      ? `Raise Star Player Impact (${bs.star_player_rate != null ? `${bs.star_player_rate}%` : "N/A"} → 35%+)`
+      : `Expand 1,000+ Trophy Pool (${p.max_tier_brawlers} → ${Math.min(20, Math.max(p.max_tier_brawlers + 3, 20))})`;
 
     tips.push({
       impact: carryItem.gap,
       category: "CARRY & 1K+ MASTERY",
-      tag: near1k.length ? "ALMOST THERE" : "SKILL GROWTH",
-      title: `Expand 1,000+ Trophy Pool (${p.max_tier_brawlers} → ${Math.max(p.max_tier_brawlers + 3, 20)})`,
-      summary: `Currently ${carryItem.score}/${carryItem.max} pts (${p.max_tier_brawlers} at 1k+, ${near1k.length} at 750–999).`,
+      tag: maxed1kPool ? "STAR PLAYER FOCUS" : near1k.length ? "ALMOST THERE" : "SKILL GROWTH",
+      title: carryTitle,
+      summary: `Currently ${carryItem.score}/${carryItem.max} pts (${p.max_tier_brawlers} at 1k+, ${bs.star_player_rate != null ? `${bs.star_player_rate}% Star Player` : "no recent team games"}).`,
       metrics: [
-        { label: "1k+ Brawlers", value: `${p.max_tier_brawlers}` },
+        { label: "1k+ Brawlers", value: `${p.max_tier_brawlers}${maxed1kPool ? " (MAX)" : " / 20"}` },
         { label: "750–999 Pool", value: `${near1k.length}` },
         { label: "Star Player %", value: bs.star_player_rate != null ? `${bs.star_player_rate}%` : "N/A" },
         { label: "Score Room", value: `+${carryItem.gap.toFixed(2)} pts` },
