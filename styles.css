@@ -89,6 +89,8 @@ button, .snake-step, .ban-slot, .pick-slot, .brawler-tile, .mini-slot {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  text-decoration: none;
+  color: var(--text);
 }
 
 .nav-star {
