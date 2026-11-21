@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f26" />
+  <title>Drafting • BrawlVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Site Navigation -->
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="./index.html" class="nav-brand">
+        <span class="nav-star" aria-hidden="true">★</span>
+        <span class="brawl-title nav-logo">BRAWLVAULT</span>
+      </a>
+      <div class="nav-links">
+        <a href="./index.html" class="nav-link">Home</a>
+        <a href="./drafting.html" class="nav-link active" aria-current="page">Drafting</a>
+        <a href="./upgrade.html" class="nav-link">Upgrade Guide</a>
+        <a href="./tierlist.html" class="nav-link">Tier List</a>
+        <a href="./lookup.html" class="nav-link">Player / Club</a>
+      </div>
+    </nav>
+
+    <!-- Top Header -->
+    <header class="top-bar">
+      <div class="brand-row">
+        <div class="brand-block">
+          <div class="ranked-emblem" aria-hidden="true">★</div>
+          <div class="brand-text">
+            <h1 class="brawl-title">RANKED DRAFT AI</h1>
+            <div class="status-pill">
+              <span id="api-status-dot" class="dot online"></span>
+              <span id="model-status-text">Connecting to Raspberry Pi 5...</span>
+            </div>
+          </div>
+        </div>
+        <button id="reset-draft-btn" class="btn btn-danger btn-reset" title="Reset Draft">
+          ↺ Reset
+        </button>
+      </div>
+
+      <div class="controls-bar">
+        <div class="control-group">
+          <label for="mode-select">MODE</label>
+          <select id="mode-select" class="select-input"></select>
+        </div>
+        <div class="control-group">
+          <label for="map-select">MAP</label>
+          <select id="map-select" class="select-input"></select>
+        </div>
+        <div class="control-group control-fp">
+          <label>FIRST PICK</label>
+          <button id="first-pick-toggle" class="btn btn-blue" data-fp="true">
+            BLUE 1ST
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Player ID / Power 11 Filter Strip -->
+    <section class="player-filter-bar">
+      <form id="draft-tag-form" class="player-filter-left">
+        <span class="filter-label">MY POWER 11 FILTER</span>
+        <input
+          type="text"
+          id="draft-player-tag"
+          class="search-input tag-compact"
+          placeholder="Player Tag (#2PP)"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+        />
+        <button type="submit" id="draft-load-tag-btn" class="btn btn-gold btn-sm">Load</button>
+        <button type="button" id="draft-clear-tag-btn" class="btn btn-danger btn-sm hidden">✕</button>
+      </form>
+
+      <div class="player-filter-right">
+        <span id="draft-player-status" class="player-status-text">
+          Enter your Brawl Stars ID to recommend only your Level 11 brawlers
+        </span>
+        <button type="button" id="lv11-only-toggle" class="btn btn-toggle hidden" data-active="true">
+          ★ Lv 11 Only: ON
+        </button>
+      </div>
+    </section>
+
+    <!-- Snake Timeline + Ban Strip -->
+    <section class="draft-strip">
+      <div class="strip-card timeline-card">
+        <div class="strip-head">
+          <span class="strip-label">SNAKE ORDER</span>
+          <span id="active-turn-badge" class="turn-pill blue-pill">PICK #1 • BLUE</span>
+        </div>
+        <div id="snake-timeline" class="snake-steps"></div>
+      </div>
+
+      <div class="strip-card bans-card">
+        <div class="strip-head">
+          <span class="strip-label">BANS</span>
+          <span id="ban-count-label" class="strip-count">0 / 6</span>
+        </div>
+        <div id="ban-slots" class="ban-slots"></div>
+      </div>
+    </section>
+
+    <!-- Compact Mobile Teams Bar (visible on mobile/tablet) -->
+    <section class="mobile-teams-bar" aria-label="Teams summary">
+      <div class="mini-team mini-blue">
+        <div class="mini-team-head">
+          <span>BLUE</span>
+          <span id="mobile-blue-badge" class="mini-badge">1ST</span>
+        </div>
+        <div id="mobile-ally-slots" class="mini-slots"></div>
+      </div>
+      <div class="mini-vs">VS</div>
+      <div class="mini-team mini-red">
+        <div class="mini-team-head">
+          <span>RED</span>
+          <span id="mobile-red-badge" class="mini-badge">2ND</span>
+        </div>
+        <div id="mobile-enemy-slots" class="mini-slots"></div>
+      </div>
+    </section>
+
+    <!-- Mobile Section Tabs (visible on phones/tablets) -->
+    <nav class="mobile-view-tabs" aria-label="Draft views">
+      <button class="mobile-tab active" data-view="recs">
+        <span>★ Top 10 AI Picks</span>
+      </button>
+      <button class="mobile-tab" data-view="roster">
+        <span>⚔ All Brawlers</span>
+      </button>
+    </nav>
+
+    <!-- Main 3-Column Stage (Desktop) / Tabbed Stage (Mobile) -->
+    <main class="draft-arena" data-mobile-view="recs">
+      <!-- Left Column: Full Blue & Red Team Cards (Desktop) -->
+      <section class="panel teams-column">
+        <div class="team-box blue-team">
+          <div class="team-header">
+            <span>BLUE TEAM (ALLY)</span>
+            <span id="blue-pick-badge" class="pick-order-tag">1ST PICK</span>
+          </div>
+          <div id="ally-slots" class="team-slots"></div>
+        </div>
+
+        <div class="vs-divider"><span>VS</span></div>
+
+        <div class="team-box red-team">
+          <div class="team-header">
+            <span>RED TEAM (ENEMY)</span>
+            <span id="red-pick-badge" class="pick-order-tag">2ND PICK</span>
+          </div>
+          <div id="enemy-slots" class="team-slots"></div>
+        </div>
+      </section>
+
+      <!-- Center Column: Brawler Roster -->
+      <section class="panel roster-column" data-panel="roster">
+        <div class="roster-toolbar">
+          <div class="assign-mode-tabs" role="tablist">
+            <button class="mode-tab active" data-target="auto">AUTO</button>
+            <button class="mode-tab tab-ban" data-target="ban">BAN</button>
+            <button class="mode-tab tab-blue" data-target="ally">BLUE</button>
+            <button class="mode-tab tab-red" data-target="enemy">RED</button>
+          </div>
+          <div class="search-wrap">
+            <input
+              type="search"
+              id="brawler-search"
+              class="search-input"
+              placeholder="Search brawler..."
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+            />
+            <button id="clear-search-btn" class="clear-search hidden" aria-label="Clear search">✕</button>
+          </div>
+        </div>
+
+        <div id="assign-hint" class="assign-hint">
+          Tap any brawler to fill <strong>PICK #1 (BLUE #1)</strong>
+        </div>
+
+        <div id="brawler-grid" class="brawler-grid"></div>
+      </section>
+
+      <!-- Right Column: Top 10 AI Recommendations -->
+      <section class="panel recommendations-column" data-panel="recs">
+        <div class="rec-header">
+          <div>
+            <h2 class="brawl-title rec-title">TOP 10 AI PICKS</h2>
+            <p id="rec-subtitle" class="rec-sub">Evaluating Snake Pick #1...</p>
+          </div>
+          <span id="rec-loading" class="rec-spinner hidden" aria-label="Loading"></span>
+        </div>
+
+        <div id="recommendations-list" class="rec-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./shared.js?v=6"></script>
+  <script src="./app.js?v=6"></script>
+</body>
+</html>

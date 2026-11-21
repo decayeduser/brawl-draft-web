@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f26" />
+  <title>Upgrade Guide • BrawlVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Site Navigation -->
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="./index.html" class="nav-brand">
+        <span class="nav-star" aria-hidden="true">★</span>
+        <span class="brawl-title nav-logo">BRAWLVAULT</span>
+      </a>
+      <div class="nav-links">
+        <a href="./index.html" class="nav-link">Home</a>
+        <a href="./drafting.html" class="nav-link">Drafting</a>
+        <a href="./upgrade.html" class="nav-link active" aria-current="page">Upgrade Guide</a>
+        <a href="./tierlist.html" class="nav-link">Tier List</a>
+        <a href="./lookup.html" class="nav-link">Player / Club</a>
+      </div>
+    </nav>
+
+    <!-- Page Header + Tag Input -->
+    <header class="page-header-card">
+      <div>
+        <h1 class="brawl-title page-title">POWER 11 UPGRADE GUIDE</h1>
+        <p class="page-sub">
+          Best brawlers to max next based on live AI meta win-rates, pro pick-rates, and real pro Star Power / Gadget / Gear builds.
+        </p>
+      </div>
+      <form id="upgrade-tag-form" class="tag-input-row">
+        <input
+          type="text"
+          id="upgrade-tag-input"
+          class="search-input tag-field"
+          placeholder="Enter Player Tag (e.g. #2PP)"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+        />
+        <button type="submit" id="upgrade-load-btn" class="btn btn-gold">Analyze Account</button>
+      </form>
+    </header>
+
+    <!-- Player Summary -->
+    <section id="upgrade-player-summary" class="summary-strip hidden"></section>
+
+    <!-- Filters -->
+    <section id="upgrade-controls" class="filter-bar hidden">
+      <div class="filter-pills">
+        <button class="filter-pill active" data-filter="unlocked">All Under Lv 11</button>
+        <button class="filter-pill" data-filter="close">Close to Max (Lv 9–10)</button>
+        <button class="filter-pill" data-filter="low">Low Level (Lv 1–8)</button>
+        <button class="filter-pill" data-filter="locked">Not Unlocked</button>
+      </div>
+      <input
+        type="search"
+        id="upgrade-search"
+        class="search-input filter-search"
+        placeholder="Filter brawler..."
+      />
+    </section>
+
+    <!-- Upgrade List -->
+    <section id="upgrade-list" class="upgrade-grid">
+      <div class="empty-card">
+        Enter your Brawl Stars Player Tag above (or connect it on Home) to get your personalized Power 11 upgrade order and pro builds.
+      </div>
+    </section>
+  </div>
+
+  <script src="./shared.js?v=6"></script>
+  <script src="./upgrade.js?v=6"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f26" />
+  <title>Player &amp; Club Lookup • BrawlVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Site Navigation -->
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="./index.html" class="nav-brand">
+        <span class="nav-star" aria-hidden="true">★</span>
+        <span class="brawl-title nav-logo">BRAWLVAULT</span>
+      </a>
+      <div class="nav-links">
+        <a href="./index.html" class="nav-link">Home</a>
+        <a href="./drafting.html" class="nav-link">Drafting</a>
+        <a href="./upgrade.html" class="nav-link">Upgrade Guide</a>
+        <a href="./tierlist.html" class="nav-link">Tier List</a>
+        <a href="./lookup.html" class="nav-link active" aria-current="page">Player / Club</a>
+      </div>
+    </nav>
+
+    <!-- Search Header -->
+    <header class="page-header-card">
+      <div>
+        <h1 class="brawl-title page-title">PLAYER &amp; CLUB LOOKUP</h1>
+        <p class="page-sub">
+          Inspect live Brawl Stars stats — Trophies, Win Rate, W/L Ratio, Star Player %, Lv 11 Roster, and BrawlVault Score out of 10.
+        </p>
+      </div>
+
+      <div class="lookup-search-stack">
+        <div class="lookup-type-tabs">
+          <button type="button" class="lookup-type-btn active" data-type="player">👤 Player Tag</button>
+          <button type="button" class="lookup-type-btn" data-type="club">🛡 Club Tag</button>
+        </div>
+        <form id="lookup-form" class="tag-input-row">
+          <input
+            type="text"
+            id="lookup-tag-input"
+            class="search-input tag-field"
+            placeholder="Enter Player Tag (e.g. #2PP)"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+          />
+          <button type="submit" id="lookup-btn" class="btn btn-gold">Search</button>
+        </form>
+      </div>
+    </header>
+
+    <!-- Result Area -->
+    <section id="lookup-result" class="lookup-result">
+      <div class="empty-card">
+        Search any Brawl Stars Player Tag or Club Tag above to view full stats and a BrawlVault rating out of 10.
+      </div>
+    </section>
+  </div>
+
+  <script src="./shared.js?v=6"></script>
+  <script src="./lookup.js?v=6"></script>
+</body>
+</html>

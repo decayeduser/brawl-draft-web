@@ -1,11 +1,6 @@
 // ============================================================================
-// Raspberry Pi 5 API Configuration (Tailscale Funnel)
+// BrawlVault Ranked Drafting UI (with Level 11 Player Filter)
 // ============================================================================
-const PI5_API_BASE_URL = "https://dull.tailed6f04.ts.net";
-const PI5_API_KEY = "JmRP^Q!(uJ@,3Vmv]#~%EJSw--FzpC";
-// ============================================================================
-
-const CLEAN_BASE_URL = PI5_API_BASE_URL.trim().replace(/\/+$/, "");
 
 const STATE = {
   brawlers: [],
@@ -21,21 +16,13 @@ const STATE = {
   allyPicks: [null, null, null],
   enemyPicks: [null, null, null],
   searchQuery: "",
+  playerProfile: null,
+  playerLevel11Set: new Set(),
+  playerPowerMap: new Map(),
+  lv11Only: true,
 };
 
 let latestRequestId = 0;
-
-function resolvePortraitUrl(portraitPath, brawlerId) {
-  const cdnUrl = `https://cdn.brawlify.com/brawlers/borderless/${brawlerId}.png`;
-  if (!portraitPath) return cdnUrl;
-  if (portraitPath.startsWith("http://") || portraitPath.startsWith("https://")) {
-    return portraitPath;
-  }
-  if (CLEAN_BASE_URL && portraitPath.startsWith("/")) {
-    return `${CLEAN_BASE_URL}${portraitPath}`;
-  }
-  return cdnUrl;
-}
 
 function getSlotMapping(snakeSlot, blueIsFirst) {
   const fpTable = {
@@ -83,35 +70,71 @@ function findNextEmptySnakeSlot(startSlot) {
   return startSlot;
 }
 
-async function apiFetch(endpointPath, options = {}) {
-  const fullUrl = `${CLEAN_BASE_URL}${endpointPath}`;
-  const headers = Object.assign(
-    {
-      "Content-Type": "application/json",
-      "X-API-Key": PI5_API_KEY,
-    },
-    options.headers || {}
-  );
-
-  const resp = await fetch(fullUrl, {
-    ...options,
-    headers,
-    mode: "cors",
+function applyPlayerProfile(profile) {
+  STATE.playerProfile = profile;
+  STATE.playerLevel11Set = new Set((profile?.power11_brawlers || []).map((n) => n.toUpperCase()));
+  STATE.playerPowerMap = new Map();
+  (profile?.brawlers || []).forEach((b) => {
+    STATE.playerPowerMap.set(b.name.toUpperCase(), b.power);
   });
 
-  if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status}`);
+  const statusEl = document.getElementById("draft-player-status");
+  const toggleBtn = document.getElementById("lv11-only-toggle");
+  const clearBtn = document.getElementById("draft-clear-tag-btn");
+
+  if (profile) {
+    statusEl.innerHTML = `<strong>${BV.esc(profile.name)}</strong> (${BV.esc(profile.tag)}) • <span class="lv11-inline">${profile.power11_count} Level 11 brawlers</span>`;
+    toggleBtn.classList.remove("hidden");
+    clearBtn.classList.remove("hidden");
+    syncLv11ToggleUI();
+  } else {
+    statusEl.textContent = "Enter your Brawl Stars ID to recommend only your Level 11 brawlers";
+    toggleBtn.classList.add("hidden");
+    clearBtn.classList.add("hidden");
   }
-  return resp.json();
+}
+
+function syncLv11ToggleUI() {
+  const toggleBtn = document.getElementById("lv11-only-toggle");
+  toggleBtn.dataset.active = String(STATE.lv11Only);
+  toggleBtn.classList.toggle("active", STATE.lv11Only);
+  toggleBtn.textContent = STATE.lv11Only ? "★ Lv 11 Only: ON" : "★ Lv 11 Only: OFF";
+}
+
+async function loadPlayerForDraft(rawTag, forceRefresh = false) {
+  const norm = BV.normalizeTag(rawTag);
+  const input = document.getElementById("draft-player-tag");
+  const btn = document.getElementById("draft-load-tag-btn");
+  const statusEl = document.getElementById("draft-player-status");
+
+  if (!norm) return;
+  input.value = norm;
+  btn.disabled = true;
+  btn.textContent = "...";
+  statusEl.textContent = `Loading ${norm}...`;
+
+  try {
+    BV.setSavedTag(norm);
+    const profile = await BV.fetchPlayer(norm, forceRefresh);
+    BV.setCachedProfile(profile);
+    applyPlayerProfile(profile);
+    renderBrawlerGrid();
+    requestRecommendations();
+  } catch (err) {
+    statusEl.textContent = err.message || "Could not load player profile.";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Load";
+  }
 }
 
 async function loadMetadata() {
   try {
-    const data = await apiFetch("/api/v1/metadata");
+    const data = await BV.apiFetch("/api/v1/metadata");
 
     STATE.brawlers = (data.brawlers || []).map((b) => ({
       ...b,
-      portrait: resolvePortraitUrl(b.portrait, b.id),
+      portrait: BV.resolvePortraitUrl(b.portrait, b.id),
       cdnFallback: `https://cdn.brawlify.com/brawlers/borderless/${b.id}.png`,
     }));
 
@@ -123,7 +146,7 @@ async function loadMetadata() {
     Object.keys(STATE.mapsByMode).forEach((m) => {
       const opt = document.createElement("option");
       opt.value = m;
-      opt.textContent = m.replace(/([A-Z])/g, " $1").toUpperCase();
+      opt.textContent = BV.formatMode(m).toUpperCase();
       modeSelect.appendChild(opt);
     });
 
@@ -140,15 +163,14 @@ async function loadMetadata() {
     const apiOk = stats.api_status?.ok !== false;
     document.getElementById("api-status-dot").className = apiOk ? "dot online" : "dot warn";
     document.getElementById("model-status-text").textContent =
-      `Pi 5 Online • ${stats.total_matches || 0} Matches • ${stats.tracked_top_players || 0} Pros • ${trainedAt}`;
+      `Pi 5 Online • ${(stats.total_matches || 0).toLocaleString()} Matches • ${(stats.tracked_top_players || 0).toLocaleString()} Pros • ${trainedAt}`;
 
     renderAll();
     requestRecommendations();
   } catch (err) {
     console.warn("Pi 5 connection error, retrying in 10s:", err);
     document.getElementById("api-status-dot").className = "dot warn";
-    document.getElementById("model-status-text").textContent =
-      "Connecting to Pi 5... (Retrying)";
+    document.getElementById("model-status-text").textContent = "Connecting to Pi 5... (Retrying)";
     setTimeout(loadMetadata, 10000);
   }
 }
@@ -303,7 +325,6 @@ function renderTeamPanels() {
           renderAll();
           requestRecommendations();
         } else {
-          // Jump active snake slot to this team slot
           for (let s = 1; s <= 6; s++) {
             const m = getSlotMapping(s, STATE.isFirstPickTeam);
             if (m.team === teamKey && m.teamSlot === idx) {
@@ -402,8 +423,9 @@ function renderBrawlerGrid() {
 
   filtered.forEach((b) => {
     const status = takenMap.get(b.name);
+    const isLv11 = STATE.playerLevel11Set.has(b.name.toUpperCase());
     const tile = document.createElement("div");
-    tile.className = `brawler-tile ${status ? "unavailable" : ""}`;
+    tile.className = `brawler-tile ${status ? "unavailable" : ""} ${isLv11 ? "tile-lv11" : ""}`;
 
     const img = document.createElement("img");
     img.src = b.portrait;
@@ -423,6 +445,12 @@ function renderBrawlerGrid() {
       badge.textContent = status === "ban" ? "BAN" : status === "ally" ? "BLUE" : "RED";
       tile.appendChild(badge);
     } else {
+      if (isLv11) {
+        const lvBadge = document.createElement("span");
+        lvBadge.className = "tile-badge badge-lv11";
+        lvBadge.textContent = "LV11";
+        tile.appendChild(lvBadge);
+      }
       tile.onclick = () => assignBrawler(b.name);
     }
     grid.appendChild(tile);
@@ -465,8 +493,9 @@ async function requestRecommendations() {
     `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map}`;
   spinner.classList.remove("hidden");
 
-  // Match trainer.py perspective: ally_picks = team currently picking, enemy_picks = opposing team
   const pickingIsAlly = mapping.team === "ally";
+  const useLv11Filter = Boolean(STATE.playerProfile && STATE.lv11Only && pickingIsAlly);
+
   const payload = {
     map: STATE.map,
     mode: STATE.mode,
@@ -475,10 +504,11 @@ async function requestRecommendations() {
     enemy_picks: (pickingIsAlly ? STATE.enemyPicks : STATE.allyPicks).filter(Boolean),
     next_pick_slot: STATE.activeSnakeSlot,
     is_first_pick_team: mapping.isFirstPickSide,
+    allowed_brawlers: useLv11Filter ? Array.from(STATE.playerLevel11Set) : null,
   };
 
   try {
-    const data = await apiFetch("/api/v1/draft/recommend", {
+    const data = await BV.apiFetch("/api/v1/draft/recommend", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -487,12 +517,18 @@ async function requestRecommendations() {
     spinner.classList.add("hidden");
 
     const mapMatches = typeof data.map_matches === "number" ? data.map_matches : STATE.mapMatchCounts[STATE.map];
+    const filterNote = useLv11Filter ? ` • My Lv 11 (${STATE.playerLevel11Set.size})` : "";
     if (typeof mapMatches === "number") {
       document.getElementById("rec-subtitle").textContent =
-        `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map} (${mapMatches} pro games)`;
+        `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map} (${mapMatches} pro games)${filterNote}`;
     }
 
     recList.innerHTML = "";
+    if (useLv11Filter && STATE.playerLevel11Set.size === 0) {
+      recList.innerHTML = `<div class="empty-state">No Level 11 brawlers found on ${BV.esc(STATE.playerProfile.name)}. Turn off "Lv 11 Only" or check the Upgrade Guide!</div>`;
+      return;
+    }
+
     if (typeof mapMatches === "number" && mapMatches < 15) {
       const notice = document.createElement("div");
       notice.className = "low-data-notice";
@@ -510,8 +546,9 @@ async function requestRecommendations() {
     }
 
     recs.forEach((rec) => {
-      const portraitSrc = resolvePortraitUrl(rec.portrait, rec.brawler_id);
+      const portraitSrc = BV.resolvePortraitUrl(rec.portrait, rec.brawler_id);
       const fallbackSrc = `https://cdn.brawlify.com/brawlers/borderless/${rec.brawler_id}.png`;
+      const isMyLv11 = STATE.playerLevel11Set.has(rec.brawler.toUpperCase());
 
       const card = document.createElement("div");
       card.className = `rec-card ${rec.rank <= 3 ? `rank-${rec.rank}` : ""}`;
@@ -532,7 +569,7 @@ async function requestRecommendations() {
       nameRow.className = "rec-name-row";
       const bName = document.createElement("span");
       bName.className = "rec-brawler-name";
-      bName.textContent = rec.brawler;
+      bName.innerHTML = `${BV.esc(rec.brawler)}${isMyLv11 ? ' <span class="lv11-chip">LV11</span>' : ""}`;
       const winRate = document.createElement("span");
       winRate.className = "rec-winrate";
       winRate.textContent = `${rec.win_probability}%`;
@@ -641,6 +678,25 @@ document.addEventListener("DOMContentLoaded", () => {
     requestRecommendations();
   });
 
+  document.getElementById("draft-tag-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    loadPlayerForDraft(document.getElementById("draft-player-tag").value, true);
+  });
+
+  document.getElementById("draft-clear-tag-btn").addEventListener("click", () => {
+    BV.setSavedTag("");
+    document.getElementById("draft-player-tag").value = "";
+    applyPlayerProfile(null);
+    renderBrawlerGrid();
+    requestRecommendations();
+  });
+
+  document.getElementById("lv11-only-toggle").addEventListener("click", () => {
+    STATE.lv11Only = !STATE.lv11Only;
+    syncLv11ToggleUI();
+    requestRecommendations();
+  });
+
   const searchInput = document.getElementById("brawler-search");
   const clearBtn = document.getElementById("clear-search-btn");
   searchInput.addEventListener("input", (e) => {
@@ -668,6 +724,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".mobile-tab").forEach((btn) => {
     btn.addEventListener("click", () => setMobileView(btn.dataset.view));
   });
+
+  const savedTag = BV.getSavedTag();
+  if (savedTag) {
+    document.getElementById("draft-player-tag").value = savedTag;
+    loadPlayerForDraft(savedTag, false);
+  }
 
   loadMetadata();
 });
