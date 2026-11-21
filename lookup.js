@@ -24,6 +24,20 @@ function scoreColorClass(score) {
   return "score-low";
 }
 
+function formatBattleType(type) {
+  const map = {
+    ranked: "Trophy Match",
+    soloRanked: "Ranked (Solo)",
+    teamRanked: "Ranked (Team)",
+    championshipChallenge: "Championship",
+    challenge: "Challenge",
+    friendly: "Friendly",
+    tournament: "Tournament",
+    regular: "Trophy Match",
+  };
+  return map[type] || BV.formatMode(type || "Match");
+}
+
 function getBreakdownItem(rating, labelPrefix) {
   const item = (rating?.breakdown || []).find((b) => b.label.startsWith(labelPrefix));
   if (!item) return { score: 0, max: 0, gap: 0 };
@@ -232,15 +246,23 @@ function generatePlayerCoaching(p) {
       steps.push(`Recent hot hand: ${bestBrawler.name} (${bestBrawler.w}W-${bestBrawler.l}L, ${bestBrawler.wr}%) vs cold pick: ${worstBrawler.name} (${worstBrawler.w}W-${worstBrawler.l}L, ${worstBrawler.wr}%).`);
     }
     if ((bs.ranked_games || 0) === 0) {
-      steps.push(`0 Ranked games in your last ${matches.length} matches — use BrawlVault Drafting when playing Ranked to draft counters & synergies.`);
+      steps.push(`All ${matches.length} recent battles were Trophy/Event matches (0 Competitive Ranked games) — try Ranked with BrawlVault Drafting when pushing competitive.`);
+    } else if (bs.ranked_win_rate != null) {
+      steps.push(`Competitive Ranked form: ${bs.ranked_win_rate}% WR across ${bs.ranked_games} Ranked games — use BrawlVault Drafting for map counters & synergies.`);
     }
+
+    const wrTarget = bs.win_rate == null ? "65%+" : bs.win_rate < 55 ? "60%+" : bs.win_rate < 65 ? "68%+" : "75%+";
+    const wrTitle =
+      bs.win_rate != null
+        ? `Push Recent Win Rate: ${bs.win_rate}% → ${wrTarget}`
+        : "Build a 65%+ Recent Win Rate";
 
     tips.push({
       impact: wrItem.gap,
       category: "RECENT WIN RATE & MODES",
-      tag: streakType === "defeat" && streakLen >= 3 ? "FIX NOW" : "HIGH IMPACT",
-      title: bs.win_rate != null ? `Push Recent Win Rate: ${bs.win_rate}% → 65%+` : "Build a 65%+ Recent Win Rate",
-      summary: `Currently ${wrItem.score}/${wrItem.max} pts (${bs.wins || 0}W–${bs.losses || 0}L, W/L ${bs.wl_ratio ?? "N/A"}).`,
+      tag: streakType === "defeat" && streakLen >= 3 ? "FIX NOW" : (bs.win_rate != null && bs.win_rate >= 65 ? "FINE-TUNE" : "HIGH IMPACT"),
+      title: wrTitle,
+      summary: `Currently ${wrItem.score}/${wrItem.max} pts (${bs.wins || 0}W–${bs.losses || 0}L, W/L ${bs.wl_ratio ?? "N/A"} — maxes at 75% WR).`,
       metrics: [
         { label: "Recent WR", value: bs.win_rate != null ? `${bs.win_rate}%` : "N/A" },
         { label: "Record", value: `${bs.wins || 0}W-${bs.losses || 0}L` },
@@ -651,7 +673,7 @@ function renderPlayerSubTab() {
                   <span class="match-mode-tag">${BV.esc(BV.formatMode(m.mode))}</span>
                   ${m.star_player ? '<span class="sp-badge">★ STAR PLAYER</span>' : ""}
                 </div>
-                <div class="match-map">${BV.esc(m.map)} • ${BV.esc(m.type)}</div>
+                <div class="match-map">${BV.esc(m.map)} • ${BV.esc(formatBattleType(m.type))}</div>
               </div>
               <div class="match-right">
                 <span class="match-res-badge ${resClass}">${resLabel}</span>
