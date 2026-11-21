@@ -74,6 +74,8 @@ button, .snake-step, .ban-slot, .pick-slot, .brawler-tile, .mini-slot {
 
 /* ==================== SITE NAVIGATION BAR ==================== */
 .site-nav {
+  position: relative;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;

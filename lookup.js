@@ -127,7 +127,7 @@ function renderPlayerProfile(p) {
             <button type="button" id="save-my-tag-btn" class="btn ${isSaved ? "btn-blue" : "btn-gold"} btn-sm">
               ${isSaved ? "✓ Saved as My ID" : "★ Set as My ID"}
             </button>
-            <a href="../upgrade/" class="btn btn-ghost btn-sm">Upgrade Guide →</a>
+            <a href="/upgrade/" class="btn btn-ghost btn-sm">Upgrade Guide →</a>
           </div>
         </div>
 
