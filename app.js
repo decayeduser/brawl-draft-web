@@ -163,14 +163,14 @@ async function loadMetadata() {
     const apiOk = stats.api_status?.ok !== false;
     document.getElementById("api-status-dot").className = apiOk ? "dot online" : "dot warn";
     document.getElementById("model-status-text").textContent =
-      `Pi 5 Online • ${(stats.total_matches || 0).toLocaleString()} Matches • ${(stats.tracked_top_players || 0).toLocaleString()} Pros • ${trainedAt}`;
+      `BrawlVault Live • ${(stats.total_matches || 0).toLocaleString()} Matches • ${(stats.tracked_top_players || 0).toLocaleString()} Pros • ${trainedAt}`;
 
     renderAll();
     requestRecommendations();
   } catch (err) {
-    console.warn("Pi 5 connection error, retrying in 10s:", err);
+    console.warn("Connection error, retrying in 10s:", err);
     document.getElementById("api-status-dot").className = "dot warn";
-    document.getElementById("model-status-text").textContent = "Connecting to Pi 5... (Retrying)";
+    document.getElementById("model-status-text").textContent = "Reconnecting to BrawlVault...";
     setTimeout(loadMetadata, 10000);
   }
 }
@@ -616,7 +616,7 @@ async function requestRecommendations() {
     if (reqId !== latestRequestId) return;
     spinner.classList.add("hidden");
     console.error("Failed to fetch recommendations:", err);
-    recList.innerHTML = `<div class="empty-state">Could not reach Raspberry Pi 5 API. Check that the Pi is online.</div>`;
+    recList.innerHTML = `<div class="empty-state">Unable to load recommendations right now. Please try again.</div>`;
   }
 }
 
