@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=17" />
+  <link rel="stylesheet" href="/styles.css?v=18" />
 </head>
 <body>
   <div class="app-shell">
@@ -38,9 +38,10 @@
       </div>
 
       <div class="lookup-search-stack">
-        <div class="lookup-type-tabs">
-          <button type="button" class="lookup-type-btn active" data-type="player">👤 Player Tag</button>
-          <button type="button" class="lookup-type-btn" data-type="club">🛡 Clan Tag</button>
+        <div class="lookup-type-tabs lookup-type-tabs-3">
+          <button type="button" class="lookup-type-btn active" data-type="player">👤 Player</button>
+          <button type="button" class="lookup-type-btn" data-type="club">🛡 Clan</button>
+          <button type="button" class="lookup-type-btn" data-type="compare">⚔ 1v1 Battle</button>
         </div>
         <form id="lookup-form" class="tag-input-row">
           <input
@@ -48,6 +49,15 @@
             id="lookup-tag-input"
             class="search-input tag-field"
             placeholder="Enter Player Tag (e.g. #2PP)"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+          />
+          <input
+            type="text"
+            id="lookup-tag-input-2"
+            class="search-input tag-field hidden"
+            placeholder="Player 2 Tag (e.g. #800)"
             autocomplete="off"
             autocapitalize="characters"
             spellcheck="false"
@@ -72,7 +82,7 @@
     </footer>
   </div>
 
-  <script src="/shared.js?v=17"></script>
-  <script src="/lookup.js?v=17"></script>
+  <script src="/shared.js?v=18"></script>
+  <script src="/lookup.js?v=18"></script>
 </body>
 </html>

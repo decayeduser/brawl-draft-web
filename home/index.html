@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=15" />
+  <link rel="stylesheet" href="/styles.css?v=18" />
 </head>
 <body>
   <div class="app-shell">
@@ -60,7 +60,22 @@
 
       <div class="home-actions">
         <a href="/drafting/" class="btn btn-gold home-cta">Open Ranked Drafting →</a>
-        <a href="/tierlist/" class="btn btn-ghost home-cta">View AI Tier List</a>
+        <a href="/tierlist/#counters" class="btn btn-blue home-cta">⚔ Counter Picker</a>
+        <a href="/lookup/?mode=compare" class="btn btn-ghost home-cta">1v1 Player Battle</a>
+      </div>
+    </section>
+
+    <!-- Live Map Rotation & Best Teams Right Now -->
+    <section class="panel rotation-panel" id="live-rotation-section">
+      <div class="rotation-head">
+        <div>
+          <div class="verdict-eyebrow">LIVE EVENTS • UPDATED AUTOMATICALLY</div>
+          <h2 class="brawl-title rotation-title">🗺 LIVE MAP ROTATION &amp; BEST TEAMS RIGHT NOW</h2>
+        </div>
+        <span id="rotation-badge" class="stat-chip chip-pick">LOADING LIVE MAPS...</span>
+      </div>
+      <div id="rotation-grid" class="rotation-grid">
+        <div class="empty-card">Loading active Brawl Stars maps &amp; AI comps...</div>
       </div>
     </section>
 
@@ -135,8 +150,25 @@
     </footer>
   </div>
 
-  <script src="/shared.js?v=11"></script>
+  <script src="/shared.js?v=18"></script>
   <script>
+    function parseScTime(raw) {
+      if (!raw) return null;
+      const m = String(raw).match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+      if (!m) return null;
+      return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`);
+    }
+
+    function formatCountdown(endRaw) {
+      const dt = parseScTime(endRaw);
+      if (!dt) return "Active Now";
+      const diffSec = Math.floor((dt.getTime() - Date.now()) / 1000);
+      if (diffSec <= 0) return "Rotating soon";
+      const h = Math.floor(diffSec / 3600);
+      const m = Math.floor((diffSec % 3600) / 60);
+      return h > 0 ? `Ends in ${h}h ${m}m` : `Ends in ${m}m`;
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       const form = document.getElementById("home-tag-form");
       const input = document.getElementById("home-tag-input");
@@ -193,9 +225,95 @@
         connectTag(saved, false);
       }
 
-      (async () => {
+      async function loadLiveRotation(metaFallback) {
+        const grid = document.getElementById("rotation-grid");
+        const badge = document.getElementById("rotation-badge");
         try {
-          const meta = await BV.apiFetch("/api/v1/metadata");
+          const rot = await BV.apiFetch("/api/v1/rotation");
+          const events = (rot.events || []).slice(0, 6);
+          if (!events.length) throw new Error("empty");
+          badge.textContent = `${events.length} LIVE MAPS NOW`;
+          grid.innerHTML = events
+            .map((ev) => {
+              const compHtml = (ev.best_comp || [])
+                .map(
+                  (b) => `
+                    <div class="rot-brawler">
+                      <img src="${BV.resolvePortraitUrl(b.portrait, b.id)}" alt="${BV.esc(b.name)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.id}.png'" />
+                      <span>${BV.esc(b.name)}</span>
+                    </div>
+                  `
+                )
+                .join("");
+              const topChips = (ev.top_picks || [])
+                .map((b) => `<span class="stat-chip">${BV.esc(b.name)} ${b.win_rate}%</span>`)
+                .join("");
+              const draftUrl = `/drafting/?mode=${encodeURIComponent(ev.mode)}&map=${encodeURIComponent(ev.map)}`;
+              return `
+                <article class="rot-card">
+                  <div class="rot-card-top">
+                    <div>
+                      <div class="rot-mode">${BV.esc(BV.formatMode(ev.mode).toUpperCase())}</div>
+                      <h3 class="rot-map">${BV.esc(ev.map)}</h3>
+                    </div>
+                    <span class="rot-timer">⏱ ${BV.esc(formatCountdown(ev.end_time))}</span>
+                  </div>
+                  <div class="rot-comp-label">BEST AI 3V3 COMP</div>
+                  <div class="rot-comp-row">${compHtml}</div>
+                  <div class="rot-picks-row">${topChips}</div>
+                  <div class="rot-card-foot">
+                    <span class="muted-tag">${(ev.sample_matches || 0).toLocaleString()} pro matches</span>
+                    <a href="${draftUrl}" class="coach-cta">Draft This Map →</a>
+                  </div>
+                </article>
+              `;
+            })
+            .join("");
+        } catch {
+          // Graceful fallback using active maps from metadata
+          const mapsByMode = metaFallback?.maps_by_mode || {};
+          const counts = metaFallback?.map_match_counts || {};
+          const fallbackCards = [];
+          Object.entries(mapsByMode).forEach(([mode, maps]) => {
+            if (maps && maps.length) {
+              const sorted = [...maps].sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+              fallbackCards.push({ mode, map: sorted[0], cnt: counts[sorted[0]] || 0 });
+            }
+          });
+          if (!fallbackCards.length) {
+            grid.innerHTML = `<div class="empty-card">Open Ranked Drafting or Tier List to explore active maps.</div>`;
+            badge.textContent = "READY";
+            return;
+          }
+          badge.textContent = "ACTIVE RANKED POOL";
+          grid.innerHTML = fallbackCards
+            .slice(0, 6)
+            .map((ev) => {
+              const draftUrl = `/drafting/?mode=${encodeURIComponent(ev.mode)}&map=${encodeURIComponent(ev.map)}`;
+              return `
+                <article class="rot-card">
+                  <div class="rot-card-top">
+                    <div>
+                      <div class="rot-mode">${BV.esc(BV.formatMode(ev.mode).toUpperCase())}</div>
+                      <h3 class="rot-map">${BV.esc(ev.map)}</h3>
+                    </div>
+                    <span class="rot-timer">${ev.cnt.toLocaleString()} pro games</span>
+                  </div>
+                  <div class="rot-card-foot">
+                    <a href="/tierlist/" class="muted-tag" style="text-decoration:none;">View Map Tiers</a>
+                    <a href="${draftUrl}" class="coach-cta">Draft This Map →</a>
+                  </div>
+                </article>
+              `;
+            })
+            .join("");
+        }
+      }
+
+      (async () => {
+        let meta = null;
+        try {
+          meta = await BV.apiFetch("/api/v1/metadata");
           const s = meta.stats || {};
           document.getElementById("home-status-dot").className = s.api_status?.ok === false ? "dot warn" : "dot online";
           document.getElementById("home-status-text").textContent =
@@ -204,6 +322,7 @@
           document.getElementById("home-status-dot").className = "dot warn";
           document.getElementById("home-status-text").textContent = "Connecting to BrawlVault AI Engine...";
         }
+        loadLiveRotation(meta);
       })();
     });
   </script>

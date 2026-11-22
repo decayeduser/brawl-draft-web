@@ -3132,3 +3132,346 @@ button, .snake-step, .ban-slot, .pick-slot, .brawler-tile, .mini-slot {
   .match-mode-select { max-width: none; width: 100%; }
   .ma-kpi-strip { grid-template-columns: repeat(2, 1fr); }
 }
+
+
+/* ==================== NEW FEATURES: WIN PROB, BANS, ROTATION, COUNTERS, 1V1, ROADMAP, PROGRESS ==================== */
+.lookup-type-tabs-3 { grid-template-columns: repeat(3, 1fr); }
+
+/* Feature #5: Drafting Win-Chance Meter & Recommended Bans */
+.draft-intel-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 10px;
+}
+.winprob-card, .rec-bans-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.winprob-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.wp-blue { color: #79d8ff; }
+.wp-red { color: #ff8aa6; }
+.wp-verdict { font-size: 10px; font-weight: 900; letter-spacing: 0.6px; color: var(--muted); text-align: center; }
+.wp-v-blue { color: #79d8ff; }
+.wp-v-red { color: #ff8aa6; }
+
+.winprob-track {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff4b6e, #c8133d);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.winprob-blue-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+  transition: width 0.25s ease;
+}
+.winprob-mid-tick {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.rec-bans-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rec-bans-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rec-ban-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 5px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 59, 107, 0.35);
+  background: rgba(255, 59, 107, 0.1);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.rec-ban-chip:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--gold); }
+.rec-ban-chip:disabled { opacity: 0.55; cursor: not-allowed; }
+.rec-ban-chip img { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; }
+.rbc-info { display: flex; flex-direction: column; text-align: left; line-height: 1.15; }
+.rbc-info strong { font-size: 11px; }
+.rbc-info span { font-size: 9.5px; color: var(--muted); font-weight: 700; }
+.rbc-act {
+  font-size: 9px;
+  font-weight: 900;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255, 59, 107, 0.25);
+  color: #ff9cb0;
+}
+
+/* Feature #2: Live Map Rotation on Home */
+.rotation-panel { display: flex; flex-direction: column; gap: 12px; }
+.rotation-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.rotation-title { font-size: clamp(18px, 2.6vw, 23px); color: var(--gold); }
+.rotation-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.rot-card {
+  background: rgba(9, 13, 31, 0.78);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.rot-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.rot-mode { font-size: 10px; font-weight: 900; letter-spacing: 0.7px; color: var(--blue); }
+.rot-map { font-size: 16px; font-weight: 800; margin-top: 2px; }
+.rot-timer {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 201, 40, 0.16);
+  color: var(--gold);
+  white-space: nowrap;
+}
+.rot-comp-label { font-size: 9.5px; font-weight: 900; letter-spacing: 0.7px; color: var(--muted); }
+.rot-comp-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.rot-brawler {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 6px 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.rot-brawler img { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; }
+.rot-brawler span { font-size: 10px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.rot-picks-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.rot-card-foot { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 4px; border-top: 1px solid var(--border); }
+
+/* Feature #3: Counter Picker on Tier List */
+.counter-picker-panel { display: flex; flex-direction: column; gap: 12px; border-color: rgba(34, 184, 255, 0.35); }
+.cp-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.cp-title { font-size: clamp(18px, 2.5vw, 22px); color: #79d8ff; }
+.cp-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.cp-controls .select-input { min-width: 170px; }
+.cp-results { display: flex; flex-direction: column; gap: 12px; }
+.cp-target-bar {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: rgba(9, 13, 31, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 9px 12px;
+}
+.cp-target-bar img { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; }
+.cp-target-name { font-size: 14px; font-weight: 800; }
+.cp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+.cp-col {
+  background: rgba(9, 13, 31, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cp-col-hard { border-color: rgba(46, 229, 157, 0.4); }
+.cp-col-title { font-size: 10px; font-weight: 900; letter-spacing: 0.7px; color: var(--gold); }
+.cp-col-hard .cp-col-title { color: var(--green); }
+.cp-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 6px; }
+.cp-chip-card {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: rgba(16, 23, 54, 0.85);
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cp-chip-card:hover { border-color: var(--gold); }
+.cp-chip-card img { width: 32px; height: 32px; border-radius: 7px; object-fit: cover; flex-shrink: 0; }
+.cp-chip-card strong { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-chip-card span { font-size: 10px; color: var(--green); font-weight: 700; }
+.cp-maps-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+
+/* Feature: Personal Goal Roadmap */
+.roadmap-panel { display: flex; flex-direction: column; gap: 12px; border-color: rgba(46, 229, 157, 0.32); }
+.weekly-focus-box {
+  background: linear-gradient(135deg, rgba(255, 201, 40, 0.12), rgba(9, 13, 31, 0.85));
+  border: 1px solid rgba(255, 201, 40, 0.38);
+  border-radius: 13px;
+  padding: 12px 14px;
+}
+.wf-title { font-size: 11px; font-weight: 900; letter-spacing: 0.7px; color: var(--gold); margin-bottom: 7px; }
+.wf-list { margin: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45; color: #e2e8ff; }
+
+.roadmap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 10px; }
+.roadmap-stage {
+  background: rgba(9, 13, 31, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.roadmap-stage.rm-done { border-color: rgba(46, 229, 157, 0.45); background: rgba(46, 229, 157, 0.06); }
+.roadmap-stage.rm-active { border-color: rgba(255, 201, 40, 0.65); box-shadow: 0 0 0 1px rgba(255, 201, 40, 0.25); }
+.roadmap-stage.rm-locked { opacity: 0.76; }
+.rm-stage-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.rm-stage-num { font-size: 9.5px; font-weight: 900; letter-spacing: 0.7px; color: var(--muted); }
+.rm-stage-title { font-size: 14px; font-weight: 800; margin-top: 2px; }
+.rm-status-pill {
+  font-size: 9px;
+  font-weight: 900;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.rm-done .rm-status-pill { background: rgba(46, 229, 157, 0.2); color: var(--green); }
+.rm-active .rm-status-pill { background: rgba(255, 201, 40, 0.22); color: var(--gold); }
+.rm-progress-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; color: var(--muted); }
+.rm-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rm-checklist li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #cfd8f6;
+}
+.rm-checklist li.rm-goal-done { color: var(--green); }
+.rm-check { font-weight: 900; }
+.rm-goal-val { font-size: 10.5px; color: var(--gold); white-space: nowrap; }
+.rm-goal-done .rm-goal-val { color: var(--green); }
+
+/* Feature #6: Progress Tracker Chart */
+.progress-panel { display: flex; flex-direction: column; gap: 11px; }
+.progress-top-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.progress-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.progress-svg {
+  width: 100%;
+  height: 165px;
+  background: rgba(9, 13, 31, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.progress-axis-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-weight: 700; }
+.progress-first-day {
+  background: rgba(9, 13, 31, 0.72);
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.progress-first-day strong { color: var(--gold); }
+
+/* Feature #1: 1v1 Player Battle */
+.compare-hero { display: flex; flex-direction: column; gap: 14px; }
+.compare-banner-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.compare-players-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.cmp-player-card {
+  background: rgba(9, 13, 31, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--text);
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  position: relative;
+}
+.cmp-player-card:hover { border-color: var(--gold); }
+.cmp-player-card.cmp-winner {
+  border-color: rgba(255, 201, 40, 0.7);
+  background: linear-gradient(180deg, rgba(255, 201, 40, 0.14), rgba(9, 13, 31, 0.85));
+}
+.cmp-crown {
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1c1200;
+}
+.cmp-big-score { font-family: 'Lilita One', cursive; font-size: 38px; color: var(--gold); line-height: 1; }
+.cmp-big-score small { font-family: inherit; font-size: 15px; color: var(--muted); }
+.cmp-vs-center { text-align: center; }
+.cmp-vs-text { font-size: 28px; color: var(--gold); }
+.cmp-tally { font-size: 20px; font-weight: 900; margin-top: 2px; }
+.cmp-verdict-line {
+  background: rgba(255, 201, 40, 0.1);
+  border: 1px solid rgba(255, 201, 40, 0.35);
+  border-radius: 11px;
+  padding: 10px 13px;
+  font-size: 13px;
+  text-align: center;
+}
+.cmp-table { display: flex; flex-direction: column; gap: 6px; }
+.cmp-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  align-items: center;
+  gap: 8px;
+  background: rgba(9, 13, 31, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.cmp-cat { text-align: center; font-size: 11.5px; font-weight: 800; color: var(--muted); }
+.cmp-val { font-weight: 800; }
+.cmp-left { text-align: left; }
+.cmp-right { text-align: right; }
+.cmp-cell-win { color: var(--green); }
+
+@media (max-width: 920px) {
+  .draft-intel-strip { grid-template-columns: 1fr; }
+  .compare-players-row { grid-template-columns: 1fr; }
+  .cmp-row { font-size: 12px; padding: 8px 9px; }
+  .roadmap-grid { grid-template-columns: 1fr; }
+}

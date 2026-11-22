@@ -9,8 +9,10 @@ const LOOKUP_STATE = {
   subTab: "matches",
   matchFilter: "all",
   matchMode: "",
+  historyMetric: "trophies",
   lastPlayer: null,
   lastRating: null,
+  lastHistory: [],
 };
 
 function setLookupType(type) {
@@ -18,8 +20,18 @@ function setLookupType(type) {
   document.querySelectorAll(".lookup-type-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.type === type);
   });
-  const input = document.getElementById("lookup-tag-input");
-  input.placeholder = type === "club" ? "Enter Clan Tag (e.g. #2PP)" : "Enter Player Tag (e.g. #2PP)";
+  const input1 = document.getElementById("lookup-tag-input");
+  const input2 = document.getElementById("lookup-tag-input-2");
+  const btn = document.getElementById("lookup-btn");
+  if (type === "compare") {
+    input1.placeholder = "Player 1 Tag (#2PP)";
+    input2.classList.remove("hidden");
+    btn.textContent = "Battle";
+  } else {
+    input1.placeholder = type === "club" ? "Enter Clan Tag (e.g. #2PP)" : "Enter Player Tag (e.g. #2PP)";
+    input2.classList.add("hidden");
+    btn.textContent = "Search";
+  }
 }
 
 function scoreColorClass(score) {
@@ -1445,6 +1457,420 @@ function renderPlayerSubTab() {
 }
 
 // ============================================================================
+// Personal Goal Roadmap ("What Should I Do Next?")
+// ============================================================================
+function renderGoalRoadmap(p, rating) {
+  const trophies = p.trophies || 0;
+  const p11 = p.power11_count || 0;
+  const v3 = p.victories_3v3 || 0;
+  const maxTier = p.max_tier_brawlers || 0;
+  const bs = p.battle_stats || {};
+  const wr = bs.win_rate ?? 0;
+  const spRate = bs.star_player_rate ?? 0;
+  const share3v3 = rating.share_3v3_pct ?? 50;
+  const brawlers = p.brawlers || [];
+
+  const stages = [
+    {
+      num: 1,
+      name: "Stage 1: Competitive Foundation",
+      tag: "25K • 12 LV11",
+      goals: [
+        { label: "Reach 25,000 🏆 Trophies", cur: trophies, target: 25000, done: trophies >= 25000, fmt: (v) => `${v.toLocaleString()} / 25,000` },
+        { label: "Max 12 Level 11 Brawlers (Mythic+ pool)", cur: p11, target: 12, done: p11 >= 12, fmt: (v) => `${v} / 12` },
+        { label: "Hit 3,000 3v3 Victories", cur: v3, target: 3000, done: v3 >= 3000, fmt: (v) => `${v.toLocaleString()} / 3,000` },
+        { label: "55%+ of Wins from 3v3 (not Showdown)", cur: share3v3, target: 55, done: share3v3 >= 55, fmt: (v) => `${v}% / 55%` },
+      ],
+    },
+    {
+      num: 2,
+      name: "Stage 2: Beat the 50k Game Average",
+      tag: "50K • 35 LV11",
+      goals: [
+        { label: "Cross 50,000 🏆 (Game Average Line)", cur: trophies, target: 50000, done: trophies >= 50000, fmt: (v) => `${v.toLocaleString()} / 50,000` },
+        { label: "Max 35 Level 11 Brawlers", cur: p11, target: 35, done: p11 >= 35, fmt: (v) => `${v} / 35` },
+        { label: "Hit 12,000 3v3 Victories", cur: v3, target: 12000, done: v3 >= 12000, fmt: (v) => `${v.toLocaleString()} / 12,000` },
+        { label: "Push 10 Brawlers to 1,000+ 🏆", cur: maxTier, target: 10, done: maxTier >= 10, fmt: (v) => `${v} / 10` },
+      ],
+    },
+    {
+      num: 3,
+      name: "Stage 3: Competitive Legendary Tier",
+      tag: "75K • 55 LV11",
+      goals: [
+        { label: "Reach 75,000 🏆 (+25k above avg)", cur: trophies, target: 75000, done: trophies >= 75000, fmt: (v) => `${v.toLocaleString()} / 75,000` },
+        { label: "Max 55 Level 11 Brawlers", cur: p11, target: 55, done: p11 >= 55, fmt: (v) => `${v} / 55` },
+        { label: "Hit 22,000 3v3 Victories", cur: v3, target: 22000, done: v3 >= 22000, fmt: (v) => `${v.toLocaleString()} / 22,000` },
+        { label: "Push 25 Brawlers to 1,000+ 🏆", cur: maxTier, target: 25, done: maxTier >= 25, fmt: (v) => `${v} / 25` },
+      ],
+    },
+    {
+      num: 4,
+      name: "Stage 4: Masters / Esports Ceiling",
+      tag: "100K • 65 LV11",
+      goals: [
+        { label: "Reach 100,000 🏆 Trophies", cur: trophies, target: 100000, done: trophies >= 100000, fmt: (v) => `${v.toLocaleString()} / 100,000` },
+        { label: "Max 65+ Level 11 Brawlers", cur: p11, target: 65, done: p11 >= 65, fmt: (v) => `${v} / 65` },
+        { label: "Hit 30,000 3v3 Victories", cur: v3, target: 30000, done: v3 >= 30000, fmt: (v) => `${v.toLocaleString()} / 30,000` },
+        { label: "45+ Brawlers at 1k+ & 25%+ Star Player", cur: maxTier, target: 45, done: maxTier >= 45 && spRate >= 25, fmt: (v) => `${v}/45 • ${spRate}% SP` },
+      ],
+    },
+  ];
+
+  // Determine active stage (first incomplete stage)
+  let currentStageIdx = stages.findIndex((st) => st.goals.some((g) => !g.done));
+  if (currentStageIdx === -1) currentStageIdx = stages.length - 1;
+
+  // Build "This Week's 3-Step Checklist" from real brawlers on the account
+  const nearMax = brawlers
+    .filter((b) => b.power === 10 || b.power === 9)
+    .sort((a, b) => b.power - a.power || b.trophies - a.trophies);
+  const near1k = brawlers
+    .filter((b) => b.trophies >= 750 && b.trophies < 1000)
+    .sort((a, b) => b.trophies - a.trophies);
+  const easyFarm = brawlers
+    .filter((b) => b.trophies < 600)
+    .sort((a, b) => (b.power >= 9 ? 1 : 0) - (a.power >= 9 ? 1 : 0) || a.trophies - b.trophies);
+
+  const weeklyTasks = [];
+  if (nearMax.length) {
+    const pick = nearMax[0];
+    const cost = calcCostTo11(pick.power);
+    weeklyTasks.push(
+      `<strong>Upgrade Priority:</strong> Finish <strong>${BV.esc(pick.name)}</strong> (Lv ${pick.power} → 11: ${cost.coins.toLocaleString()} Coins / ${cost.pp.toLocaleString()} PP) and equip its pro build.`
+    );
+  } else {
+    weeklyTasks.push(`<strong>Upgrade Priority:</strong> Open the <a href="/upgrade/" style="color:var(--gold);">Upgrade Guide</a> and push your #1 S-tier brawler straight to Lv 11.`);
+  }
+
+  if (near1k.length) {
+    const pick = near1k[0];
+    weeklyTasks.push(
+      `<strong>1,000 🏆 Push Target:</strong> Push <strong>${BV.esc(pick.name)}</strong> (${pick.trophies.toLocaleString()} → 1,000 🏆, only ${1000 - pick.trophies} trophies left) on its best map.`
+    );
+  } else if (easyFarm.length) {
+    const names = easyFarm.slice(0, 3).map((b) => `${BV.esc(b.name)} (${b.trophies} 🏆)`).join(", ");
+    weeklyTasks.push(`<strong>Fastest Trophy Gain:</strong> Farm ${names} up to 600 🏆 in 3v3 modes to climb toward ${trophies < 50000 ? "the 50k average" : "your next milestone"}.`);
+  }
+
+  if (share3v3 < 55) {
+    weeklyTasks.push(`<strong>Fix 3v3 Ratio:</strong> Play 3v3 modes (Brawl Ball / Knockout / Hot Zone) instead of Showdown to raise 3v3 share from ${share3v3}% → 55%+ and remove your rating penalty.`);
+  } else if (wr < 55) {
+    weeklyTasks.push(`<strong>Stabilize Win Rate:</strong> Stop solo-queuing on tilt — pair up with a teammate and use <a href="/drafting/" style="color:var(--gold);">Ranked Drafting</a> to lift recent WR from ${wr}% → 60%+.`);
+  } else {
+    weeklyTasks.push(`<strong>Competitive Edge:</strong> Queue Ranked with <a href="/drafting/" style="color:var(--gold);">BrawlVault Drafting</a> &amp; <a href="/tierlist/#counters" style="color:var(--gold);">Counter Picker</a> to maintain your ${wr}% win rate.`);
+  }
+
+  const stagesHtml = stages
+    .map((st, idx) => {
+      const doneCount = st.goals.filter((g) => g.done).length;
+      const pct = Math.round((doneCount / st.goals.length) * 100);
+      const isDone = doneCount === st.goals.length;
+      const isActive = idx === currentStageIdx && !isDone;
+      const statusCls = isDone ? "rm-done" : isActive ? "rm-active" : "rm-locked";
+      const statusBadge = isDone ? "✓ COMPLETED" : isActive ? "★ CURRENT GOAL" : "UP NEXT";
+
+      return `
+        <div class="roadmap-stage ${statusCls}">
+          <div class="rm-stage-head">
+            <div>
+              <div class="rm-stage-num">STAGE ${st.num} • ${st.tag}</div>
+              <h4 class="rm-stage-title">${BV.esc(st.name)}</h4>
+            </div>
+            <span class="rm-status-pill">${statusBadge}</span>
+          </div>
+          <div class="rm-progress-row">
+            <div class="rb-track"><div class="rb-fill" style="width:${pct}%"></div></div>
+            <span>${doneCount}/${st.goals.length}</span>
+          </div>
+          <ul class="rm-checklist">
+            ${st.goals
+              .map(
+                (g) => `
+                  <li class="${g.done ? "rm-goal-done" : ""}">
+                    <span class="rm-check">${g.done ? "✓" : "○"}</span>
+                    <span class="rm-goal-lbl">${BV.esc(g.label)}</span>
+                    <strong class="rm-goal-val">${BV.esc(g.fmt(g.cur))}</strong>
+                  </li>
+                `
+              )
+              .join("")}
+          </ul>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <section class="panel roadmap-panel">
+      <div class="coaching-header">
+        <div>
+          <div class="verdict-eyebrow">PERSONAL GOAL ROADMAP • STEP-BY-STEP PROGRESSION</div>
+          <h3 class="brawl-title coaching-heading">🗺 WHAT YOU SHOULD DO NEXT</h3>
+        </div>
+        <span class="stat-chip chip-pick">STAGE ${currentStageIdx + 1} OF 4</span>
+      </div>
+
+      <div class="weekly-focus-box">
+        <div class="wf-title">⚡ THIS WEEK'S 3-STEP CHECKLIST FOR ${BV.esc(p.name.toUpperCase())}</div>
+        <ol class="wf-list">
+          ${weeklyTasks.map((t) => `<li>${t}</li>`).join("")}
+        </ol>
+      </div>
+
+      <div class="roadmap-grid">${stagesHtml}</div>
+    </section>
+  `;
+}
+
+// ============================================================================
+// Feature #6: Trophy & Rating Progress Tracker (SQLite + localStorage + SVG Chart)
+// ============================================================================
+function syncAndGetPlayerHistory(p, rating) {
+  const norm = BV.normalizeTag(p.tag);
+  const key = `bv_history_${norm}`;
+  const today = new Date().toISOString().slice(0, 10);
+  const currentSnap = {
+    day: today,
+    ts: Math.floor(Date.now() / 1000),
+    trophies: p.trophies || 0,
+    victories_3v3: p.victories_3v3 || 0,
+    power11_count: p.power11_count || 0,
+    max_tier_brawlers: p.max_tier_brawlers || 0,
+    rating_score: rating.score,
+  };
+
+  let localList = [];
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) localList = JSON.parse(raw) || [];
+  } catch {
+    localList = [];
+  }
+
+  // Merge Pi server snapshots + browser snapshots by day
+  const byDay = new Map();
+  (p.history || []).forEach((s) => s && s.day && byDay.set(s.day, s));
+  localList.forEach((s) => s && s.day && byDay.set(s.day, s));
+  byDay.set(today, currentSnap);
+
+  const merged = Array.from(byDay.values())
+    .sort((a, b) => String(a.day).localeCompare(String(b.day)))
+    .slice(-30);
+
+  try {
+    localStorage.setItem(key, JSON.stringify(merged));
+  } catch {
+    // ignore storage quota errors
+  }
+  return merged;
+}
+
+function renderProgressTrackerSection(history, metric) {
+  const cfg = {
+    trophies: { label: "Trophies 🏆", key: "trophies", fmt: (v) => v.toLocaleString(), color: "#ffc928" },
+    rating_score: { label: "Strict Rating /10", key: "rating_score", fmt: (v) => `${Number(v).toFixed(1)}`, color: "#2ee59d" },
+    power11_count: { label: "Level 11 Brawlers", key: "power11_count", fmt: (v) => `${v}`, color: "#22b8ff" },
+  }[metric] || { label: "Trophies 🏆", key: "trophies", fmt: (v) => v.toLocaleString(), color: "#ffc928" };
+
+  const vals = history.map((h) => Number(h[cfg.key] ?? 0));
+  const first = history[0];
+  const last = history[history.length - 1];
+  const delta = history.length >= 2 ? Number((vals[vals.length - 1] - vals[0]).toFixed(1)) : 0;
+  const deltaStr =
+    metric === "rating_score"
+      ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)} pts`
+      : `${delta >= 0 ? "+" : ""}${Math.round(delta).toLocaleString()}`;
+
+  let chartSvg = "";
+  if (history.length >= 2) {
+    const w = 640;
+    const h = 165;
+    const padX = 36;
+    const padY = 20;
+    const minV = Math.min(...vals);
+    const maxV = Math.max(...vals);
+    const span = Math.max(maxV - minV, metric === "rating_score" ? 0.5 : 50);
+
+    const pts = vals.map((v, i) => {
+      const x = padX + (i / (vals.length - 1)) * (w - padX * 2);
+      const y = h - padY - ((v - minV) / span) * (h - padY * 2);
+      return { x, y, v, day: history[i].day };
+    });
+
+    const linePath = pts.map((pt, i) => `${i === 0 ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(" ");
+    const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},${h - padY} L${pts[0].x.toFixed(1)},${h - padY} Z`;
+
+    chartSvg = `
+      <svg class="progress-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${BV.esc(cfg.label)} history chart">
+        <defs>
+          <linearGradient id="progGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${cfg.color}" stop-opacity="0.35" />
+            <stop offset="100%" stop-color="${cfg.color}" stop-opacity="0.02" />
+          </linearGradient>
+        </defs>
+        <line x1="${padX}" y1="${padY}" x2="${w - padX}" y2="${padY}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 4" />
+        <line x1="${padX}" y1="${h - padY}" x2="${w - padX}" y2="${h - padY}" stroke="rgba(255,255,255,0.12)" />
+        <path d="${areaPath}" fill="url(#progGrad)" />
+        <path d="${linePath}" fill="none" stroke="${cfg.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        ${pts
+          .map(
+            (pt) =>
+              `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4.5" fill="${cfg.color}" stroke="#0b0f26" stroke-width="2"><title>${pt.day}: ${cfg.fmt(pt.v)}</title></circle>`
+          )
+          .join("")}
+      </svg>
+      <div class="progress-axis-row">
+        <span>${BV.esc(first.day)} (${BV.esc(cfg.fmt(vals[0]))})</span>
+        <span>Latest: <strong>${BV.esc(last.day)} (${BV.esc(cfg.fmt(vals[vals.length - 1]))})</strong></span>
+      </div>
+    `;
+  } else {
+    chartSvg = `
+      <div class="progress-first-day">
+        <strong>📍 Snapshot #1 saved for ${BV.esc(last?.day || "today")}!</strong>
+        <span>Every time you check this tag on a new day, BrawlVault logs Trophies, Strict Rating, and Level 11s and plots your growth curve automatically.</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="progress-top-row">
+      <div>
+        <div class="verdict-eyebrow">DAILY PROGRESS TRACKER • ${history.length} SNAPSHOT${history.length === 1 ? "" : "S"}</div>
+        <h3 class="brawl-title coaching-heading">📈 ACCOUNT PROGRESS OVER TIME</h3>
+      </div>
+      <div class="filter-pills">
+        <button type="button" class="filter-pill ${metric === "trophies" ? "active" : ""}" data-hmetric="trophies">Trophies</button>
+        <button type="button" class="filter-pill ${metric === "rating_score" ? "active" : ""}" data-hmetric="rating_score">Rating</button>
+        <button type="button" class="filter-pill ${metric === "power11_count" ? "active" : ""}" data-hmetric="power11_count">Lv 11s</button>
+      </div>
+    </div>
+    <div class="progress-kpis">
+      <div class="ma-kpi"><span>Current ${BV.esc(cfg.label)}</span><strong>${BV.esc(cfg.fmt(vals[vals.length - 1] ?? 0))}</strong></div>
+      <div class="ma-kpi"><span>Change (${history.length}d tracked)</span><strong class="${delta >= 0 ? "green-text" : "red-text"}">${BV.esc(deltaStr)}</strong></div>
+      <div class="ma-kpi"><span>First Tracked</span><strong>${BV.esc(first?.day || "Today")}</strong></div>
+    </div>
+    ${chartSvg}
+  `;
+}
+
+// ============================================================================
+// Feature #1: 1v1 Player Account Battle / Compare
+// ============================================================================
+function renderCompareResult(p1, p2) {
+  const r1 = computeStrictPlayerRating(p1);
+  const r2 = computeStrictPlayerRating(p2);
+  const bs1 = p1.battle_stats || {};
+  const bs2 = p2.battle_stats || {};
+
+  const rows = [
+    { label: "Strict BrawlVault Rating", v1: r1.score, v2: r2.score, fmt: (v) => `${v.toFixed(1)} / 10` },
+    { label: "Trophies (50k Avg)", v1: p1.trophies, v2: p2.trophies, fmt: (v) => `🏆 ${v.toLocaleString()}` },
+    { label: "Peak Trophies", v1: p1.highest_trophies, v2: p2.highest_trophies, fmt: (v) => v.toLocaleString() },
+    { label: "3v3 Victories", v1: p1.victories_3v3, v2: p2.victories_3v3, fmt: (v) => v.toLocaleString() },
+    { label: "3v3 Share (%)", v1: r1.share_3v3_pct, v2: r2.share_3v3_pct, fmt: (v) => `${v}%` },
+    { label: "Level 11 Brawlers", v1: p1.power11_count, v2: p2.power11_count, fmt: (v) => `${v}` },
+    { label: "1,000+ Trophy Brawlers", v1: p1.max_tier_brawlers, v2: p2.max_tier_brawlers, fmt: (v) => `${v}` },
+    { label: "Recent Win Rate", v1: bs1.win_rate ?? -1, v2: bs2.win_rate ?? -1, fmt: (v) => (v >= 0 ? `${v}%` : "N/A") },
+    { label: "Star Player Rate", v1: bs1.star_player_rate ?? -1, v2: bs2.star_player_rate ?? -1, fmt: (v) => (v >= 0 ? `${v}%` : "N/A") },
+  ];
+
+  let p1Wins = 0;
+  let p2Wins = 0;
+  rows.forEach((row) => {
+    if (row.v1 > row.v2) p1Wins += 1;
+    else if (row.v2 > row.v1) p2Wins += 1;
+  });
+
+  const winner =
+    r1.score > r2.score || (r1.score === r2.score && p1Wins >= p2Wins)
+      ? { p: p1, r: r1, side: 1, margin: Number((r1.score - r2.score).toFixed(1)) }
+      : { p: p2, r: r2, side: 2, margin: Number((r2.score - r1.score).toFixed(1)) };
+
+  const shareUrl = `${window.location.origin}/lookup/?p1=${encodeURIComponent(p1.tag)}&p2=${encodeURIComponent(p2.tag)}`;
+
+  const resultEl = document.getElementById("lookup-result");
+  resultEl.innerHTML = `
+    <section class="panel compare-hero">
+      <div class="compare-banner-top">
+        <span class="verdict-eyebrow">⚔ 1V1 ACCOUNT BATTLE • 50K AVG BENCHMARK</span>
+        <button type="button" id="copy-compare-link" class="btn btn-ghost btn-sm">🔗 Copy 1v1 Link</button>
+      </div>
+
+      <div class="compare-players-row">
+        <button type="button" class="cmp-player-card ${winner.side === 1 ? "cmp-winner" : ""}" data-inspect-tag="${BV.esc(p1.tag)}">
+          ${winner.side === 1 ? '<span class="cmp-crown">👑 WINNER</span>' : ""}
+          <h3 class="brawl-title">${BV.esc(p1.name)}</h3>
+          <div class="profile-tag">${BV.esc(p1.tag)}</div>
+          <div class="cmp-big-score">${r1.score.toFixed(1)}<small>/10</small></div>
+          <span class="rating-grade">${BV.esc(r1.grade)}</span>
+        </button>
+
+        <div class="cmp-vs-center">
+          <div class="brawl-title cmp-vs-text">VS</div>
+          <div class="cmp-tally">${p1Wins} – ${p2Wins}</div>
+          <div class="muted-tag">Categories Won</div>
+        </div>
+
+        <button type="button" class="cmp-player-card ${winner.side === 2 ? "cmp-winner" : ""}" data-inspect-tag="${BV.esc(p2.tag)}">
+          ${winner.side === 2 ? '<span class="cmp-crown">👑 WINNER</span>' : ""}
+          <h3 class="brawl-title">${BV.esc(p2.name)}</h3>
+          <div class="profile-tag">${BV.esc(p2.tag)}</div>
+          <div class="cmp-big-score">${r2.score.toFixed(1)}<small>/10</small></div>
+          <span class="rating-grade">${BV.esc(r2.grade)}</span>
+        </button>
+      </div>
+
+      <div class="cmp-verdict-line">
+        <strong>VERDICT:</strong> <strong>${BV.esc(winner.p.name)}</strong> wins this 1v1${
+          winner.margin >= 1.5
+            ? ` convincingly (+${winner.margin} rating pts ahead) — not even close.`
+            : winner.margin >= 0.4
+              ? ` by +${winner.margin} rating pts (${p1Wins}–${p2Wins} across categories).`
+              : ` in a razor-close matchup (${p1Wins}–${p2Wins} across categories).`
+        }
+      </div>
+
+      <div class="cmp-table">
+        ${rows
+          .map((row) => {
+            const w1 = row.v1 > row.v2 ? "cmp-cell-win" : "";
+            const w2 = row.v2 > row.v1 ? "cmp-cell-win" : "";
+            return `
+              <div class="cmp-row">
+                <div class="cmp-val cmp-left ${w1}">${BV.esc(row.fmt(row.v1))}</div>
+                <div class="cmp-cat">${BV.esc(row.label)}</div>
+                <div class="cmp-val cmp-right ${w2}">${BV.esc(row.fmt(row.v2))}</div>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </section>
+  `;
+
+  document.getElementById("copy-compare-link").addEventListener("click", async (e) => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      e.currentTarget.textContent = "✓ Link Copied!";
+      setTimeout(() => { e.currentTarget.textContent = "🔗 Copy 1v1 Link"; }, 2200);
+    } catch {
+      prompt("Copy this 1v1 share link:", shareUrl);
+    }
+  });
+
+  resultEl.querySelectorAll("[data-inspect-tag]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tag = btn.dataset.inspectTag;
+      setLookupType("player");
+      document.getElementById("lookup-tag-input").value = tag;
+      runLookup("player", tag);
+    });
+  });
+}
+
+// ============================================================================
 // Render Player & Club Profiles
 // ============================================================================
 function renderPlayerProfile(p) {
@@ -1455,6 +1881,9 @@ function renderPlayerProfile(p) {
 
   const rating = computeStrictPlayerRating(p);
   LOOKUP_STATE.lastRating = rating;
+  const history = syncAndGetPlayerHistory(p, rating);
+  LOOKUP_STATE.lastHistory = history;
+
   const bs = p.battle_stats || {};
   const enrichedMatches = (bs.recent_matches || []).map(enrichMatch);
   const verdict = buildPlayerVerdict(p, rating, enrichedMatches);
@@ -1526,6 +1955,12 @@ function renderPlayerProfile(p) {
 
     ${renderVerdictCard("BRAWLVAULT JUDGE • 50,000 🏆 AVERAGE BENCHMARK", verdict)}
 
+    ${renderGoalRoadmap(p, rating)}
+
+    <section class="panel progress-panel" id="progress-tracker-panel">
+      ${renderProgressTrackerSection(history, LOOKUP_STATE.historyMetric)}
+    </section>
+
     ${renderCoachingSection(
       "HOW TO RAISE YOUR SCORE",
       "Strict competitive benchmarks: 50k trophies = average (100k max), 30k 3v3 wins, 65 Lv 11s, 45 brawlers at 1k+.",
@@ -1538,6 +1973,19 @@ function renderPlayerProfile(p) {
     </div>
     <div id="player-sub-content"></div>
   `;
+
+  function bindProgressMetricTabs() {
+    const panel = document.getElementById("progress-tracker-panel");
+    if (!panel) return;
+    panel.querySelectorAll("[data-hmetric]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        LOOKUP_STATE.historyMetric = btn.dataset.hmetric;
+        panel.innerHTML = renderProgressTrackerSection(LOOKUP_STATE.lastHistory, LOOKUP_STATE.historyMetric);
+        bindProgressMetricTabs();
+      });
+    });
+  }
+  bindProgressMetricTabs();
 
   document.getElementById("save-my-tag-btn").addEventListener("click", (e) => {
     BV.setSavedTag(p.tag);
@@ -1722,6 +2170,36 @@ async function runLookup(type, rawTag) {
   }
 }
 
+async function runCompare(rawTag1, rawTag2) {
+  const t1 = BV.normalizeTag(rawTag1);
+  const t2 = BV.normalizeTag(rawTag2);
+  const input1 = document.getElementById("lookup-tag-input");
+  const input2 = document.getElementById("lookup-tag-input-2");
+  const btn = document.getElementById("lookup-btn");
+  const resultEl = document.getElementById("lookup-result");
+
+  if (!t1 || t1.length < 4 || !t2 || t2.length < 4) {
+    resultEl.innerHTML = `<div class="empty-card error-card">Enter two valid Brawl Stars player tags to start a 1v1 Battle (e.g. #2PP and #800).</div>`;
+    return;
+  }
+
+  input1.value = t1;
+  input2.value = t2;
+  btn.disabled = true;
+  btn.textContent = "Battling...";
+  resultEl.innerHTML = `<div class="empty-card">Comparing ${BV.esc(t1)} vs ${BV.esc(t2)} live...</div>`;
+
+  try {
+    const [p1, p2] = await Promise.all([BV.fetchPlayer(t1, true), BV.fetchPlayer(t2, true)]);
+    renderCompareResult(p1, p2);
+  } catch (err) {
+    resultEl.innerHTML = `<div class="empty-card error-card">${BV.esc(err.message || "Could not compare those two player tags.")}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Battle";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".lookup-type-btn").forEach((btn) => {
     btn.addEventListener("click", () => setLookupType(btn.dataset.type));
@@ -1729,14 +2207,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("lookup-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    runLookup(LOOKUP_STATE.type, document.getElementById("lookup-tag-input").value);
+    if (LOOKUP_STATE.type === "compare") {
+      runCompare(
+        document.getElementById("lookup-tag-input").value,
+        document.getElementById("lookup-tag-input-2").value
+      );
+    } else {
+      runLookup(LOOKUP_STATE.type, document.getElementById("lookup-tag-input").value);
+    }
   });
 
   const params = new URLSearchParams(window.location.search);
   const qClub = params.get("club");
   const qPlayer = params.get("player");
+  const qP1 = params.get("p1");
+  const qP2 = params.get("p2");
+  const qMode = params.get("mode");
 
-  if (qClub) {
+  if (qP1 && qP2) {
+    setLookupType("compare");
+    runCompare(qP1, qP2);
+  } else if (qMode === "compare") {
+    setLookupType("compare");
+    const saved = BV.getSavedTag();
+    if (saved) document.getElementById("lookup-tag-input").value = saved;
+  } else if (qClub) {
     setLookupType("club");
     runLookup("club", qClub);
   } else if (qPlayer) {

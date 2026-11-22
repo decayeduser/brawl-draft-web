@@ -153,8 +153,19 @@ async function loadMetadata() {
     if (!STATE.mapsByMode[STATE.mode]) {
       STATE.mode = Object.keys(STATE.mapsByMode)[0] || "gemGrab";
     }
+    // Check URL deep-link (?mode=brawlBall&map=Backyard+Bowl) from Live Rotation
+    const urlParams = new URLSearchParams(window.location.search);
+    const qMode = urlParams.get("mode");
+    const qMap = urlParams.get("map");
+    if (qMode && STATE.mapsByMode[qMode]) {
+      STATE.mode = qMode;
+    }
     modeSelect.value = STATE.mode;
     populateMapsForMode();
+    if (qMap && (STATE.mapsByMode[STATE.mode] || []).includes(qMap)) {
+      STATE.map = qMap;
+      document.getElementById("map-select").value = qMap;
+    }
 
     const stats = data.stats || {};
     const trainedAt = stats.last_model_update
@@ -483,6 +494,76 @@ function assignBrawler(brawlerName) {
   requestRecommendations();
 }
 
+function renderWinProbBar(blueProb) {
+  const bPct = Math.max(15, Math.min(85, Number(blueProb ?? 50)));
+  const rPct = Number((100 - bPct).toFixed(1));
+  const blueEl = document.getElementById("blue-win-pct");
+  const redEl = document.getElementById("red-win-pct");
+  const fillEl = document.getElementById("winprob-blue-fill");
+  const verdictEl = document.getElementById("winprob-verdict");
+  if (!blueEl || !redEl || !fillEl || !verdictEl) return;
+
+  blueEl.textContent = `${bPct.toFixed(1)}%`;
+  redEl.textContent = `${rPct.toFixed(1)}%`;
+  fillEl.style.width = `${bPct}%`;
+
+  const totalPicked = STATE.allyPicks.filter(Boolean).length + STATE.enemyPicks.filter(Boolean).length;
+  if (totalPicked === 0) {
+    verdictEl.textContent = "EVEN DRAFT • PICK BRAWLERS TO EVALUATE";
+    verdictEl.className = "wp-verdict";
+  } else if (bPct >= 56) {
+    verdictEl.textContent = `BLUE ADVANTAGE (+${(bPct - 50).toFixed(1)}%)`;
+    verdictEl.className = "wp-verdict wp-v-blue";
+  } else if (rPct >= 56) {
+    verdictEl.textContent = `RED ADVANTAGE (+${(rPct - 50).toFixed(1)}%)`;
+    verdictEl.className = "wp-verdict wp-v-red";
+  } else {
+    verdictEl.textContent = "CLOSE / SKILL MATCHUP";
+    verdictEl.className = "wp-verdict";
+  }
+}
+
+function renderRecommendedBans(recBans) {
+  const container = document.getElementById("rec-bans-list");
+  if (!container) return;
+  const taken = getTakenMap();
+  const list = (recBans || []).filter((b) => !taken.has(b.brawler)).slice(0, 6);
+  const banSlotsLeft = STATE.bans.filter((x) => !x).length;
+
+  if (!list.length) {
+    container.innerHTML = `<span class="muted-tag">All top threats already banned or picked.</span>`;
+    return;
+  }
+
+  container.innerHTML = list
+    .map((b) => {
+      const portraitSrc = BV.resolvePortraitUrl(b.portrait, b.brawler_id);
+      const fallbackSrc = `https://cdn.brawlify.com/brawlers/borderless/${b.brawler_id}.png`;
+      return `
+        <button type="button" class="rec-ban-chip" data-ban-name="${BV.esc(b.brawler)}" ${banSlotsLeft === 0 ? "disabled" : ""} title="${BV.esc(b.reason || "Top map threat")}">
+          <img src="${portraitSrc}" alt="${BV.esc(b.brawler)}" onerror="this.src='${fallbackSrc}'" />
+          <div class="rbc-info">
+            <strong>${BV.esc(b.brawler)}</strong>
+            <span>${b.map_win_rate}% WR${b.pick_rate ? ` • ${b.pick_rate}% PR` : ""}</span>
+          </div>
+          <span class="rbc-act">${banSlotsLeft > 0 ? "BAN" : "FULL"}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll(".rec-ban-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.banName;
+      const emptyBan = STATE.bans.indexOf(null);
+      if (!name || emptyBan === -1 || getTakenMap().has(name)) return;
+      STATE.bans[emptyBan] = name;
+      renderAll();
+      requestRecommendations();
+    });
+  });
+}
+
 async function requestRecommendations() {
   const reqId = ++latestRequestId;
   const recList = document.getElementById("recommendations-list");
@@ -502,6 +583,8 @@ async function requestRecommendations() {
     banned_brawlers: STATE.bans.filter(Boolean),
     ally_picks: (pickingIsAlly ? STATE.allyPicks : STATE.enemyPicks).filter(Boolean),
     enemy_picks: (pickingIsAlly ? STATE.enemyPicks : STATE.allyPicks).filter(Boolean),
+    blue_picks: STATE.allyPicks.filter(Boolean),
+    red_picks: STATE.enemyPicks.filter(Boolean),
     next_pick_slot: STATE.activeSnakeSlot,
     is_first_pick_team: mapping.isFirstPickSide,
     allowed_brawlers: useLv11Filter ? Array.from(STATE.playerLevel11Set) : null,
@@ -515,6 +598,37 @@ async function requestRecommendations() {
 
     if (reqId !== latestRequestId) return;
     spinner.classList.add("hidden");
+
+    // Live Win-Chance Meter & Recommended Bans (with seamless fallback if Pi hasn't updated yet)
+    const recs = data.recommendations || [];
+    if (typeof data.blue_win_probability === "number") {
+      renderWinProbBar(data.blue_win_probability);
+    } else {
+      const blueCnt = STATE.allyPicks.filter(Boolean).length;
+      const redCnt = STATE.enemyPicks.filter(Boolean).length;
+      if (blueCnt === 0 && redCnt === 0) {
+        renderWinProbBar(50.0);
+      } else {
+        const topWr = recs[0]?.win_probability ?? 50;
+        const estBlue = pickingIsAlly ? topWr : 100 - topWr;
+        renderWinProbBar(50 + (estBlue - 50) * 0.45);
+      }
+    }
+
+    if (Array.isArray(data.recommended_bans) && data.recommended_bans.length) {
+      renderRecommendedBans(data.recommended_bans);
+    } else if (recs.length) {
+      renderRecommendedBans(
+        recs.slice(0, 5).map((r) => ({
+          brawler: r.brawler,
+          brawler_id: r.brawler_id,
+          portrait: r.portrait,
+          map_win_rate: r.map_win_rate,
+          pick_rate: r.pick_rate,
+          reason: r.reason_tag,
+        }))
+      );
+    }
 
     const mapMatches = typeof data.map_matches === "number" ? data.map_matches : STATE.mapMatchCounts[STATE.map];
     const filterNote = useLv11Filter ? ` • My Lv 11 (${STATE.playerLevel11Set.size})` : "";
@@ -539,7 +653,6 @@ async function requestRecommendations() {
       recList.appendChild(notice);
     }
 
-    const recs = data.recommendations || [];
     if (!recs.length) {
       recList.innerHTML = `<div class="empty-state">No available brawlers left to recommend.</div>`;
       return;
