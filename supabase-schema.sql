@@ -15,15 +15,19 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "Profiles are readable by everyone" on public.profiles;
 create policy "Profiles are readable by everyone"
   on public.profiles for select
+  to anon, authenticated
   using (true);
 
+drop policy if exists "Users can create their own profile" on public.profiles;
 create policy "Users can create their own profile"
   on public.profiles for insert
   to authenticated
   with check (auth.uid() = id and is_admin = false);
 
+drop policy if exists "Users can update their own non-admin fields" on public.profiles;
 create policy "Users can update their own non-admin fields"
   on public.profiles for update
   to authenticated
@@ -60,11 +64,14 @@ create index if not exists idx_guides_mode_brawler on public.guides (mode, brawl
 
 alter table public.guides enable row level security;
 
+drop policy if exists "Guides are readable by everyone" on public.guides;
 create policy "Guides are readable by everyone"
   on public.guides for select
+  to anon, authenticated
   using (true);
 
 -- Anti-spam rate limit enforced at the database level: max 5 guides per 24h per user
+drop policy if exists "Authenticated users can publish guides (max 5 per 24h)" on public.guides;
 create policy "Authenticated users can publish guides (max 5 per 24h)"
   on public.guides for insert
   to authenticated
@@ -78,6 +85,7 @@ create policy "Authenticated users can publish guides (max 5 per 24h)"
     ) < 5
   );
 
+drop policy if exists "Authors or admins can update guides" on public.guides;
 create policy "Authors or admins can update guides"
   on public.guides for update
   to authenticated
@@ -90,6 +98,7 @@ create policy "Authors or admins can update guides"
     or exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin = true)
   );
 
+drop policy if exists "Authors or admins can delete guides" on public.guides;
 create policy "Authors or admins can delete guides"
   on public.guides for delete
   to authenticated
@@ -108,15 +117,19 @@ create table if not exists public.guide_votes (
 
 alter table public.guide_votes enable row level security;
 
+drop policy if exists "Votes are readable by everyone" on public.guide_votes;
 create policy "Votes are readable by everyone"
   on public.guide_votes for select
+  to anon, authenticated
   using (true);
 
+drop policy if exists "Authenticated users can upvote" on public.guide_votes;
 create policy "Authenticated users can upvote"
   on public.guide_votes for insert
   to authenticated
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can remove their own upvote" on public.guide_votes;
 create policy "Users can remove their own upvote"
   on public.guide_votes for delete
   to authenticated
@@ -145,6 +158,49 @@ drop trigger if exists trg_guide_votes_count on public.guide_votes;
 create trigger trg_guide_votes_count
   after insert or delete on public.guide_votes
   for each row execute function public.sync_guide_upvotes();
+
+-- 5. Server-side Content Moderation Trigger (cannot be bypassed even via direct API)
+create or replace function public.enforce_guide_moderation()
+returns trigger
+language plpgsql
+as $$
+declare
+  combined text;
+  normalized text;
+begin
+  combined := concat_ws(' ', new.title, new.star_power, new.gadget, new.gears, new.synergies, new.counters, new.body);
+
+  -- Block external links, scams, hacks, illegal/harmful phrases, and script injection
+  if combined ~* '(https?://|www\.|discord\.gg/|t\.me/|bit\.ly/|tinyurl\.com/|<\s*script|javascript:|onerror\s*=|onload\s*=)' then
+    raise exception 'External links and HTML scripts are not allowed in guides.';
+  end if;
+
+  if combined ~* '\m(free\s*gems?|gem\s*generator|brawl\s*hack|mod\s*apk|cheat\s*engine|account\s*for\s*sale|sell(?:ing)?\s*account|buy\s*account|cracked\s*account|steal\s*account|hack\s*account|ip\s*grabber|ddos|doxx?(?:ing)?|swat(?:ting)?|carding|phishing|ransomware|keylogger|csam|cp\s*links?|child\s*porn|pedophile|kill\s*yourself|kys|commit\s*suicide|bomb\s*making|how\s*to\s*make\s*a\s*bomb|buy\s*cocaine|buy\s*heroin|buy\s*meth|buy\s*fentanyl|sell\s*drugs|buy\s*drugs|buy\s*illegal\s*guns?|mass\s*shooting|terrorism|terrorist\s*attack)\M' then
+    raise exception 'Prohibited or illegal content detected.';
+  end if;
+
+  -- Normalize leetspeak & Turkish characters and block swear words / slurs (EN + TR)
+  normalized := translate(replace(lower(combined), chr(775), ''), '@431!|0$57çğıöşü', 'aaeiiiosstcgiosu');
+  if combined ~* '\m(fuck|fucker|fucking|fucked|motherfucker|shit|bullshit|shitty|bitch|bitches|bastard|asshole|dickhead|cunt|whore|slut|cocksucker|nigger|nigga|faggot|fag|retard|retarded|rape|rapist|nazi|hitler|porn|pornhub|xvideos|hentai|blowjob|handjob|amk|aq|amq|orospu|oruspu|oç|oc|piç|piçlik|piclik|siktir|sikim|sikeyim|sikerim|sikik|yarrak|yarak|göt|götveren|gotveren|kahpe|pezevenk|ibne|gavat|yavşak|yavsak|şerefsiz|serefsiz|ananı|anani)\M'
+     or normalized ~* '\m(fuck|fucker|fucking|fucked|motherfucker|shit|bullshit|shitty|bitch|bitches|bastard|asshole|dickhead|cunt|whore|slut|cocksucker|nigger|nigga|faggot|fag|retard|retarded|rape|rapist|nazi|hitler|porn|pornhub|xvideos|hentai|blowjob|handjob|amk|aq|amq|orospu|oruspu|oc|piclik|siktir|sikim|sikeyim|sikerim|sikik|yarrak|yarak|gotveren|kahpe|pezevenk|ibne|gavat|yavsak|serefsiz|anani)\M' then
+    raise exception 'Please remove swear words or offensive language before publishing.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_guides_moderation on public.guides;
+create trigger trg_guides_moderation
+  before insert or update on public.guides
+  for each row execute function public.enforce_guide_moderation();
+
+-- 6. Ensure logged-out (anon) visitors can read all guides & votes publicly
+grant usage on schema public to anon, authenticated;
+grant select on public.guides, public.guide_votes, public.profiles to anon, authenticated;
+grant insert, update, delete on public.guides, public.guide_votes, public.profiles to authenticated;
+
+notify pgrst, 'reload schema';
 
 -- ============================================================================
 -- OPTIONAL: Make yourself an Admin (can moderate/delete any spam guide)

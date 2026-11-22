@@ -19,6 +19,7 @@ const GUIDES_STATE = {
   user: null,
   profile: null,
   guides: [],
+  guidesLoaded: false,
   myVotes: new Set(),
   brawlers: [],
   mapsByMode: {},
@@ -27,6 +28,84 @@ const GUIDES_STATE = {
   brawlerFilter: "",
   search: "",
 };
+
+// ============================================================================
+// Content Moderation (Blocks illegal/scam/XSS/links & censors/blocks profanity)
+// ============================================================================
+const PROHIBITED_PATTERNS = [
+  // External URLs, phishing, scam invites
+  /(?:https?:\/\/|www\.|discord\.gg\/|t\.me\/|bit\.ly\/|tinyurl\.com\/)/i,
+  // Scams, account selling, hacks/cheats, cybercrime
+  /\b(?:free\s*gems?|gem\s*generator|brawl\s*hack|mod\s*apk|cheat\s*engine|account\s*for\s*sale|sell(?:ing)?\s*account|buy\s*account|cracked\s*account|steal\s*account|hack\s*account|ip\s*grabber|ddos|doxx?(?:ing)?|swat(?:ting)?|carding|phishing|ransomware|keylogger)\b/i,
+  // Severe illegal / harmful / self-harm / illicit sales / violence
+  /\b(?:csam|cp\s*links?|child\s*porn|pedophile|kill\s*yourself|kys|commit\s*suicide|bomb\s*making|how\s*to\s*make\s*a\s*bomb|buy\s*cocaine|buy\s*heroin|buy\s*meth|buy\s*fentanyl|sell\s*drugs|buy\s*drugs|buy\s*illegal\s*guns?|mass\s*shooting|terrorism|terrorist\s*attack)\b/i,
+  // Script / HTML injection attempts
+  /<\s*script|javascript:|onerror\s*=|onload\s*=/i,
+];
+
+const PROFANITY_WORDS = [
+  // English profanity & severe slurs (matched on whole word boundaries)
+  "fuck", "fucker", "fucking", "fucked", "motherfucker", "shit", "bullshit", "shitty",
+  "bitch", "bitches", "bastard", "asshole", "dickhead", "cunt", "whore", "slut",
+  "cocksucker", "nigger", "nigga", "faggot", "fag", "retard", "retarded", "rape", "rapist",
+  "nazi", "hitler", "porn", "pornhub", "xvideos", "hentai", "blowjob", "handjob",
+  // Turkish profanity
+  "amk", "aq", "amq", "orospu", "oruspu", "oç", "oc", "piç", "piçlik", "piclik",
+  "siktir", "sikim", "sikeyim", "sikerim", "sikik", "yarrak", "yarak", "göt",
+  "götveren", "gotveren", "kahpe", "pezevenk", "ibne", "gavat", "yavşak", "yavsak",
+  "şerefsiz", "serefsiz", "ananı", "anani",
+];
+
+function normalizeForFilter(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\u0307/g, "") // Strip combining dot from Turkish uppercase İ.toLowerCase()
+    .replace(/[@4]/g, "a")
+    .replace(/[3]/g, "e")
+    .replace(/[1!|]/g, "i")
+    .replace(/[0]/g, "o")
+    .replace(/[$5]/g, "s")
+    .replace(/[7]/g, "t")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u");
+}
+
+const PROFANITY_PATTERN_SRC = `(^|[^\\p{L}\\p{N}])(${PROFANITY_WORDS.join("|")})(?=$|[^\\p{L}\\p{N}])`;
+const PROFANITY_TEST_REGEX = new RegExp(PROFANITY_PATTERN_SRC, "iu");
+const PROFANITY_REPLACE_REGEX = new RegExp(PROFANITY_PATTERN_SRC, "giu");
+
+function checkGuideModeration(fields) {
+  const combined = fields.filter(Boolean).join("\n");
+  const normalized = normalizeForFilter(combined);
+  // Collapse spaced-out evasion like "f u c k" or "f.u.c.k" inside short tokens
+  const collapsed = normalized.replace(/(?<=\b[a-z])[\s._*-]+(?=[a-z]\b)/g, "");
+
+  for (const pat of PROHIBITED_PATTERNS) {
+    if (pat.test(combined) || pat.test(normalized)) {
+      return "Your guide contains prohibited links, scam/hack terms, or illegal content and cannot be published.";
+    }
+  }
+  if (
+    PROFANITY_TEST_REGEX.test(combined) ||
+    PROFANITY_TEST_REGEX.test(normalized) ||
+    PROFANITY_TEST_REGEX.test(collapsed)
+  ) {
+    return "Please remove swear words or offensive language before publishing your guide.";
+  }
+  return null;
+}
+
+function censorDisplay(text) {
+  if (!text) return "";
+  return String(text).replace(
+    PROFANITY_REPLACE_REGEX,
+    (_m, lead, word) => `${lead}${"*".repeat(word.length)}`
+  );
+}
 
 function timeAgo(isoStr) {
   if (!isoStr) return "";
@@ -169,11 +248,13 @@ async function fetchGuides() {
 
   const { data, error } = await query;
   if (error) {
+    GUIDES_STATE.guidesLoaded = false;
     grid.innerHTML = `<div class="empty-card error-card">Could not load guides: ${BV.esc(error.message)}</div>`;
     return;
   }
 
   GUIDES_STATE.guides = data || [];
+  GUIDES_STATE.guidesLoaded = true;
   renderGuides();
 }
 
@@ -242,9 +323,9 @@ function openReadModal(guide) {
     : "";
 
   const buildParts = [];
-  if (guide.star_power) buildParts.push(`<div class="build-row"><span class="build-key">★ Star Power</span><span class="build-val">${BV.esc(guide.star_power)}</span></div>`);
-  if (guide.gadget) buildParts.push(`<div class="build-row"><span class="build-key">⚙ Gadget</span><span class="build-val">${BV.esc(guide.gadget)}</span></div>`);
-  if (guide.gears) buildParts.push(`<div class="build-row"><span class="build-key">⛨ Gears</span><span class="build-val">${BV.esc(guide.gears)}</span></div>`);
+  if (guide.star_power) buildParts.push(`<div class="build-row"><span class="build-key">★ Star Power</span><span class="build-val">${BV.esc(censorDisplay(guide.star_power))}</span></div>`);
+  if (guide.gadget) buildParts.push(`<div class="build-row"><span class="build-key">⚙ Gadget</span><span class="build-val">${BV.esc(censorDisplay(guide.gadget))}</span></div>`);
+  if (guide.gears) buildParts.push(`<div class="build-row"><span class="build-key">⛨ Gears</span><span class="build-val">${BV.esc(censorDisplay(guide.gears))}</span></div>`);
 
   content.innerHTML = `
     <div class="modal-head">
@@ -255,10 +336,10 @@ function openReadModal(guide) {
           <span class="stat-chip">${BV.esc(guide.mode === "all" ? "All Modes" : BV.formatMode(guide.mode))}</span>
           <span class="stat-chip">${BV.esc(guide.map || "Any Map")}</span>
         </div>
-        <h2 class="guide-modal-title">${BV.esc(guide.title)}</h2>
+        <h2 class="guide-modal-title">${BV.esc(censorDisplay(guide.title))}</h2>
         <div class="guide-author-line">
           ${guide.author_avatar ? `<img src="${BV.esc(guide.author_avatar)}" alt="" class="mini-avatar" referrerpolicy="no-referrer" />` : ""}
-          <span>by <strong>${BV.esc(guide.author_name)}</strong> • ${timeAgo(guide.created_at)}</span>
+          <span>by <strong>${BV.esc(censorDisplay(guide.author_name))}</strong> • ${timeAgo(guide.created_at)}</span>
         </div>
       </div>
     </div>
@@ -268,13 +349,13 @@ function openReadModal(guide) {
     ${
       guide.synergies || guide.counters
         ? `<div class="guide-matchup-chips">
-            ${guide.synergies ? `<div class="gm-chip gm-syn"><strong>Best With:</strong> ${BV.esc(guide.synergies)}</div>` : ""}
-            ${guide.counters ? `<div class="gm-chip gm-cnt"><strong>Matchups:</strong> ${BV.esc(guide.counters)}</div>` : ""}
+            ${guide.synergies ? `<div class="gm-chip gm-syn"><strong>Best With:</strong> ${BV.esc(censorDisplay(guide.synergies))}</div>` : ""}
+            ${guide.counters ? `<div class="gm-chip gm-cnt"><strong>Matchups:</strong> ${BV.esc(censorDisplay(guide.counters))}</div>` : ""}
           </div>`
         : ""
     }
 
-    <div class="guide-full-body">${BV.esc(guide.body)}</div>
+    <div class="guide-full-body">${BV.esc(censorDisplay(guide.body))}</div>
 
     <div class="guide-modal-footer">
       <button type="button" id="modal-upvote-btn" class="btn ${voted ? "btn-gold" : "btn-ghost"} btn-sm">
@@ -318,7 +399,8 @@ function renderGuides() {
     const portrait = g.brawler_id
       ? `https://cdn.brawlify.com/brawlers/borderless/${g.brawler_id}.png`
       : "";
-    const preview = g.body.length > 185 ? `${g.body.slice(0, 185).trim()}…` : g.body;
+    const cleanBody = censorDisplay(g.body);
+    const preview = cleanBody.length > 185 ? `${cleanBody.slice(0, 185).trim()}…` : cleanBody;
 
     const card = document.createElement("article");
     card.className = "guide-card";
@@ -332,7 +414,7 @@ function renderGuides() {
               <span class="stat-chip">${BV.esc(g.mode === "all" ? "All Modes" : BV.formatMode(g.mode))}</span>
               <span class="stat-chip">${BV.esc(g.map || "Any Map")}</span>
             </div>
-            <h3 class="guide-card-title">${BV.esc(g.title)}</h3>
+            <h3 class="guide-card-title">${BV.esc(censorDisplay(g.title))}</h3>
           </div>
         </div>
         <button type="button" class="upvote-btn ${voted ? "voted" : ""}" data-id="${BV.esc(g.id)}">
@@ -344,9 +426,9 @@ function renderGuides() {
       ${
         g.star_power || g.gadget || g.gears
           ? `<div class="guide-mini-build">
-              ${g.star_power ? `<span>★ ${BV.esc(g.star_power)}</span>` : ""}
-              ${g.gadget ? `<span>⚙ ${BV.esc(g.gadget)}</span>` : ""}
-              ${g.gears ? `<span>⛨ ${BV.esc(g.gears)}</span>` : ""}
+              ${g.star_power ? `<span>★ ${BV.esc(censorDisplay(g.star_power))}</span>` : ""}
+              ${g.gadget ? `<span>⚙ ${BV.esc(censorDisplay(g.gadget))}</span>` : ""}
+              ${g.gears ? `<span>⛨ ${BV.esc(censorDisplay(g.gears))}</span>` : ""}
             </div>`
           : ""
       }
@@ -356,7 +438,7 @@ function renderGuides() {
       <div class="guide-card-foot">
         <div class="guide-author-line">
           ${g.author_avatar ? `<img src="${BV.esc(g.author_avatar)}" alt="" class="mini-avatar" referrerpolicy="no-referrer" />` : ""}
-          <span>${BV.esc(g.author_name)} • ${timeAgo(g.created_at)}</span>
+          <span>${BV.esc(censorDisplay(g.author_name))} • ${timeAgo(g.created_at)}</span>
         </div>
         <button type="button" class="read-guide-link">Read Guide →</button>
       </div>
@@ -411,9 +493,21 @@ async function handlePublishGuide(e) {
   const bObj = GUIDES_STATE.brawlers.find((b) => b.name === brawlerName);
   const title = document.getElementById("gf-title").value.trim();
   const body = document.getElementById("gf-body").value.trim();
+  const starPower = document.getElementById("gf-sp").value.trim();
+  const gadget = document.getElementById("gf-gadget").value.trim();
+  const gears = document.getElementById("gf-gears").value.trim();
+  const synergies = document.getElementById("gf-synergies").value.trim();
+  const counters = document.getElementById("gf-counters").value.trim();
 
   if (title.length < 4 || body.length < 20) {
     errEl.textContent = "Title must be at least 4 characters and strategy tips at least 20 characters.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+
+  const modError = checkGuideModeration([title, starPower, gadget, gears, synergies, counters, body]);
+  if (modError) {
+    errEl.textContent = modError;
     errEl.classList.remove("hidden");
     return;
   }
@@ -438,11 +532,11 @@ async function handlePublishGuide(e) {
         brawler_id: bObj ? bObj.id : 0,
         mode: document.getElementById("gf-mode").value,
         map: document.getElementById("gf-map").value || "Any Map",
-        star_power: document.getElementById("gf-sp").value.trim(),
-        gadget: document.getElementById("gf-gadget").value.trim(),
-        gears: document.getElementById("gf-gears").value.trim(),
-        synergies: document.getElementById("gf-synergies").value.trim(),
-        counters: document.getElementById("gf-counters").value.trim(),
+        star_power: starPower,
+        gadget,
+        gears,
+        synergies,
+        counters,
         body,
       })
       .select("*")
@@ -540,14 +634,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   loadBrawlerMetadata();
+  renderAuthBar();
+  // Always load public guides immediately so logged-out visitors see them right away
+  fetchGuides();
 
   if (sb) {
-    const { data: sessionData } = await sb.auth.getSession();
-    GUIDES_STATE.user = sessionData?.session?.user || null;
-    if (GUIDES_STATE.user) {
-      GUIDES_STATE.profile = await ensureUserProfile(GUIDES_STATE.user);
-      await fetchMyVotes();
+    try {
+      const { data: sessionData } = await sb.auth.getSession();
+      GUIDES_STATE.user = sessionData?.session?.user || null;
+      if (GUIDES_STATE.user) {
+        GUIDES_STATE.profile = await ensureUserProfile(GUIDES_STATE.user);
+        await fetchMyVotes();
+      }
+      renderAuthBar();
+      if (GUIDES_STATE.guidesLoaded) renderGuides();
+    } catch {
+      // Keep browsing anonymously if session lookup fails
     }
+
     sb.auth.onAuthStateChange(async (_event, session) => {
       GUIDES_STATE.user = session?.user || null;
       if (GUIDES_STATE.user) {
@@ -558,10 +662,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         GUIDES_STATE.myVotes.clear();
       }
       renderAuthBar();
-      renderGuides();
+      if (GUIDES_STATE.guidesLoaded) renderGuides();
     });
   }
-
-  renderAuthBar();
-  fetchGuides();
 });
