@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f26" />
+  <title>Counter Picker • BrawlVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css?v=19" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Site Navigation -->
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="/home/" class="nav-brand">
+        <span class="nav-star" aria-hidden="true">★</span>
+        <span class="brawl-title nav-logo">BRAWLVAULT</span>
+      </a>
+      <div class="nav-links">
+        <a href="/home/" class="nav-link">Home</a>
+        <a href="/drafting/" class="nav-link">Drafting</a>
+        <a href="/upgrade/" class="nav-link">Upgrade Guide</a>
+        <a href="/tierlist/" class="nav-link">Tier List</a>
+        <a href="/counters/" class="nav-link active" aria-current="page">Counter Picker</a>
+        <a href="/guides/" class="nav-link">Match Guides</a>
+        <a href="/lookup/" class="nav-link">Player/Clan Lookup</a>
+      </div>
+    </nav>
+
+    <!-- Page Header -->
+    <header class="page-header-card">
+      <div>
+        <h1 class="brawl-title page-title">⚔ COUNTER PICKER</h1>
+        <p class="page-sub">
+          Pick any annoying enemy brawler (and optional map) to see their hardest counters, best teammates, easiest matchups, and strongest vs weakest maps from real pro Ranked data.
+        </p>
+      </div>
+      <div class="tier-controls">
+        <div class="control-group">
+          <label for="cp-brawler-select">ENEMY BRAWLER</label>
+          <select id="cp-brawler-select" class="select-input">
+            <option value="">Select Brawler...</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="cp-map-select">MAP (OPTIONAL)</label>
+          <select id="cp-map-select" class="select-input">
+            <option value="">Any Map (Overall)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="cp-search">QUICK PICK</label>
+          <input type="search" id="cp-search" class="search-input" placeholder="Filter brawler..." />
+        </div>
+      </div>
+    </header>
+
+    <!-- Highlight legend if player tag is saved -->
+    <div id="cp-lv11-bar" class="tier-lv11-note hidden"></div>
+
+    <!-- Main Counter Analysis Card -->
+    <section class="panel counter-picker-panel">
+      <div id="cp-results" class="cp-results">
+        <div class="empty-card">Loading live counter matrix...</div>
+      </div>
+    </section>
+
+    <!-- Quick Visual Brawler Picker -->
+    <section class="panel">
+      <div class="section-bar-title">TAP ANY ENEMY BRAWLER TO FIND COUNTERS</div>
+      <div id="cp-brawler-grid" class="tier-row-grid"></div>
+    </section>
+
+    <footer class="site-footer">
+      <p>
+        This material is unofficial and is not endorsed by Supercell. For more information see Supercell's Fan Content Policy:
+        <a href="https://supercell.com/en/fan-content-policy/" target="_blank" rel="noopener noreferrer">www.supercell.com/fan-content-policy</a>.
+      </p>
+    </footer>
+  </div>
+
+  <script src="/shared.js?v=19"></script>
+  <script src="/counters.js?v=19"></script>
+</body>
+</html>

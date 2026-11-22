@@ -121,8 +121,8 @@ function computeStrictPlayerRating(p) {
   const effectiveTrophies = Math.max(trophies, Math.floor(highest * 0.94));
   const trophyScore = Math.min(2.5, (effectiveTrophies / 100000) * 2.5);
 
-  // 2. 3v3 Experience (0..2.0) — ~15k avg, 30k+ max; penalized if Showdown-inflated (<55% 3v3)
-  const rawExp = Math.min(2.0, Math.pow(v3 / 30000, 0.92) * 2.0);
+  // 2. 3v3 Experience (0..2.0) — ~7k avg, 18k+ max; penalized if Showdown-inflated (<55% 3v3)
+  const rawExp = Math.min(2.0, Math.pow(v3 / 18000, 0.90) * 2.0);
   const totalAllWins = Math.max(1, v3 + soloV + duoV);
   const share3v3 = v3 / totalAllWins;
   const expScore = rawExp * (share3v3 < 0.55 ? 0.78 : 1.0);
@@ -431,12 +431,12 @@ function buildPlayerVerdict(p, rating, enrichedMatches) {
       tone: "bad",
       text: `Showdown-inflated record: only ${share3v3}% of your wins are 3v3 (${v3.toLocaleString()} 3v3 vs ${sd.toLocaleString()} Solo/Duo). Bush-camping Solo/Duo doesn't translate to Ranked 3v3 skill.`,
     });
-  } else if (v3 < 8000) {
+  } else if (v3 < 5000) {
     callouts.push({
       tone: "warn",
-      text: `Light 3v3 experience: only ${v3.toLocaleString()} 3v3 wins (competitive average is ~15,000+, elite is 30,000+).`,
+      text: `Light 3v3 experience: only ${v3.toLocaleString()} 3v3 wins (competitive 50k baseline is ~5,000+, elite is 15,000+).`,
     });
-  } else if (v3 >= 20000) {
+  } else if (v3 >= 12000) {
     callouts.push({
       tone: "good",
       text: `Battle-tested in 3v3: ${v3.toLocaleString()} 3v3 wins (${share3v3}% of all wins) — real team-mode experience.`,
@@ -923,13 +923,13 @@ function generatePlayerCoaching(p, rating) {
   const totalWinsAll = Math.max(1, (p.victories_3v3 || 0) + sdTotal);
   const share3v3 = Math.round(((p.victories_3v3 || 0) / totalWinsAll) * 100);
   if (expItem.gap >= 0.15) {
-    const next3v3 = p.victories_3v3 < 5000 ? 5000 : p.victories_3v3 < 15000 ? 15000 : p.victories_3v3 < 22000 ? 22000 : 30000;
+    const next3v3 = p.victories_3v3 < 1500 ? 1500 : p.victories_3v3 < 5000 ? 5000 : p.victories_3v3 < 10000 ? 10000 : 18000;
     const remain = Math.max(0, next3v3 - p.victories_3v3);
     const steps = [];
     if (share3v3 < 55) {
       steps.push(`Penalty active: only ${share3v3}% of your wins are 3v3 (${p.victories_3v3.toLocaleString()} 3v3 vs ${sdTotal.toLocaleString()} Solo/Duo). Raising 3v3 share above 55% removes the Showdown inflation penalty.`);
     } else {
-      steps.push(`Clean ${share3v3}% 3v3 share — need +${remain.toLocaleString()} more 3v3 wins to reach ${next3v3.toLocaleString()} (maxes at 30,000).`);
+      steps.push(`Clean ${share3v3}% 3v3 share — need +${remain.toLocaleString()} more 3v3 wins to reach ${next3v3.toLocaleString()} (maxes at 18,000).`);
     }
     steps.push(
       p.club
@@ -942,7 +942,7 @@ function generatePlayerCoaching(p, rating) {
       category: "3V3 EXPERIENCE",
       tag: share3v3 < 55 ? "SD PENALTY" : "LONG-TERM",
       title: `Grow 3v3 Victories (${p.victories_3v3.toLocaleString()} → ${next3v3.toLocaleString()})`,
-      summary: `Currently ${expItem.score}/${expItem.max} pts (${share3v3}% 3v3 share — 15k avg, 30k max).`,
+      summary: `Currently ${expItem.score}/${expItem.max} pts (${share3v3}% 3v3 share — 7k avg, 18k max).`,
       metrics: [
         { label: "3v3 Wins", value: p.victories_3v3.toLocaleString() },
         { label: "Solo + Duo", value: sdTotal.toLocaleString() },
@@ -1478,7 +1478,7 @@ function renderGoalRoadmap(p, rating) {
       goals: [
         { label: "Reach 25,000 🏆 Trophies", cur: trophies, target: 25000, done: trophies >= 25000, fmt: (v) => `${v.toLocaleString()} / 25,000` },
         { label: "Max 12 Level 11 Brawlers (Mythic+ pool)", cur: p11, target: 12, done: p11 >= 12, fmt: (v) => `${v} / 12` },
-        { label: "Hit 3,000 3v3 Victories", cur: v3, target: 3000, done: v3 >= 3000, fmt: (v) => `${v.toLocaleString()} / 3,000` },
+        { label: "Hit 1,500 3v3 Victories", cur: v3, target: 1500, done: v3 >= 1500, fmt: (v) => `${v.toLocaleString()} / 1,500` },
         { label: "55%+ of Wins from 3v3 (not Showdown)", cur: share3v3, target: 55, done: share3v3 >= 55, fmt: (v) => `${v}% / 55%` },
       ],
     },
@@ -1489,7 +1489,7 @@ function renderGoalRoadmap(p, rating) {
       goals: [
         { label: "Cross 50,000 🏆 (Game Average Line)", cur: trophies, target: 50000, done: trophies >= 50000, fmt: (v) => `${v.toLocaleString()} / 50,000` },
         { label: "Max 35 Level 11 Brawlers", cur: p11, target: 35, done: p11 >= 35, fmt: (v) => `${v} / 35` },
-        { label: "Hit 12,000 3v3 Victories", cur: v3, target: 12000, done: v3 >= 12000, fmt: (v) => `${v.toLocaleString()} / 12,000` },
+        { label: "Hit 5,000 3v3 Victories", cur: v3, target: 5000, done: v3 >= 5000, fmt: (v) => `${v.toLocaleString()} / 5,000` },
         { label: "Push 10 Brawlers to 1,000+ 🏆", cur: maxTier, target: 10, done: maxTier >= 10, fmt: (v) => `${v} / 10` },
       ],
     },
@@ -1500,7 +1500,7 @@ function renderGoalRoadmap(p, rating) {
       goals: [
         { label: "Reach 75,000 🏆 (+25k above avg)", cur: trophies, target: 75000, done: trophies >= 75000, fmt: (v) => `${v.toLocaleString()} / 75,000` },
         { label: "Max 55 Level 11 Brawlers", cur: p11, target: 55, done: p11 >= 55, fmt: (v) => `${v} / 55` },
-        { label: "Hit 22,000 3v3 Victories", cur: v3, target: 22000, done: v3 >= 22000, fmt: (v) => `${v.toLocaleString()} / 22,000` },
+        { label: "Hit 10,000 3v3 Victories", cur: v3, target: 10000, done: v3 >= 10000, fmt: (v) => `${v.toLocaleString()} / 10,000` },
         { label: "Push 25 Brawlers to 1,000+ 🏆", cur: maxTier, target: 25, done: maxTier >= 25, fmt: (v) => `${v} / 25` },
       ],
     },
@@ -1511,7 +1511,7 @@ function renderGoalRoadmap(p, rating) {
       goals: [
         { label: "Reach 100,000 🏆 Trophies", cur: trophies, target: 100000, done: trophies >= 100000, fmt: (v) => `${v.toLocaleString()} / 100,000` },
         { label: "Max 65+ Level 11 Brawlers", cur: p11, target: 65, done: p11 >= 65, fmt: (v) => `${v} / 65` },
-        { label: "Hit 30,000 3v3 Victories", cur: v3, target: 30000, done: v3 >= 30000, fmt: (v) => `${v.toLocaleString()} / 30,000` },
+        { label: "Hit 15,000 3v3 Victories", cur: v3, target: 15000, done: v3 >= 15000, fmt: (v) => `${v.toLocaleString()} / 15,000` },
         { label: "45+ Brawlers at 1k+ & 25%+ Star Player", cur: maxTier, target: 45, done: maxTier >= 45 && spRate >= 25, fmt: (v) => `${v}/45 • ${spRate}% SP` },
       ],
     },
@@ -1558,7 +1558,7 @@ function renderGoalRoadmap(p, rating) {
   } else if (wr < 55) {
     weeklyTasks.push(`<strong>Stabilize Win Rate:</strong> Stop solo-queuing on tilt — pair up with a teammate and use <a href="/drafting/" style="color:var(--gold);">Ranked Drafting</a> to lift recent WR from ${wr}% → 60%+.`);
   } else {
-    weeklyTasks.push(`<strong>Competitive Edge:</strong> Queue Ranked with <a href="/drafting/" style="color:var(--gold);">BrawlVault Drafting</a> &amp; <a href="/tierlist/#counters" style="color:var(--gold);">Counter Picker</a> to maintain your ${wr}% win rate.`);
+    weeklyTasks.push(`<strong>Competitive Edge:</strong> Queue Ranked with <a href="/drafting/" style="color:var(--gold);">BrawlVault Drafting</a> &amp; <a href="/counters/" style="color:var(--gold);">Counter Picker</a> to maintain your ${wr}% win rate.`);
   }
 
   const stagesHtml = stages
@@ -1963,7 +1963,7 @@ function renderPlayerProfile(p) {
 
     ${renderCoachingSection(
       "HOW TO RAISE YOUR SCORE",
-      "Strict competitive benchmarks: 50k trophies = average (100k max), 30k 3v3 wins, 65 Lv 11s, 45 brawlers at 1k+.",
+      "Strict competitive benchmarks: 50k trophies = average (100k max), 18k 3v3 wins, 65 Lv 11s, 45 brawlers at 1k+.",
       generatePlayerCoaching(p, rating)
     )}
 

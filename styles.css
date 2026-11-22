@@ -3322,6 +3322,11 @@ button, .snake-step, .ban-slot, .pick-slot, .brawler-tile, .mini-slot {
 .cp-chip-card strong { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cp-chip-card span { font-size: 10px; color: var(--green); font-weight: 700; }
 .cp-maps-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.cp-tile-active {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 2px rgba(34, 184, 255, 0.45);
+  background: rgba(34, 184, 255, 0.16);
+}
 
 /* Feature: Personal Goal Roadmap */
 .roadmap-panel { display: flex; flex-direction: column; gap: 12px; border-color: rgba(46, 229, 157, 0.32); }

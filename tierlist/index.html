@@ -23,6 +23,7 @@
         <a href="/drafting/" class="nav-link">Drafting</a>
         <a href="/upgrade/" class="nav-link">Upgrade Guide</a>
         <a href="/tierlist/" class="nav-link active" aria-current="page">Tier List</a>
+        <a href="/counters/" class="nav-link">Counter Picker</a>
         <a href="/guides/" class="nav-link">Match Guides</a>
         <a href="/lookup/" class="nav-link">Player/Clan Lookup</a>
       </div>
@@ -59,27 +60,6 @@
     <!-- Highlight legend if player tag is saved -->
     <div id="tier-lv11-bar" class="tier-lv11-note hidden"></div>
 
-    <!-- Counter Picker ("Who Beats X?") -->
-    <section id="counters" class="panel counter-picker-panel">
-      <div class="cp-head">
-        <div>
-          <div class="verdict-eyebrow">MATCHUP ENGINE • REAL PRO COUNTER MATRIX</div>
-          <h2 class="brawl-title cp-title">⚔ COUNTER PICKER — WHO BEATS WHO?</h2>
-        </div>
-        <div class="cp-controls">
-          <select id="cp-brawler-select" class="select-input">
-            <option value="">Select Enemy Brawler...</option>
-          </select>
-          <select id="cp-map-select" class="select-input">
-            <option value="">Any Map (Overall)</option>
-          </select>
-        </div>
-      </div>
-      <div id="cp-results" class="cp-results">
-        <div class="muted-tag">Pick an annoying enemy brawler above (e.g., Mortis, Piper, Kit, Frank) to see their hardest counters, best allies, and worst maps.</div>
-      </div>
-    </section>
-
     <!-- S / A / B / C / D Tiers Container -->
     <section id="tier-rows" class="tier-rows">
       <div class="empty-card">Loading live AI Tier List...</div>
@@ -101,7 +81,7 @@
     </div>
   </div>
 
-  <script src="/shared.js?v=18"></script>
-  <script src="/tierlist.js?v=18"></script>
+  <script src="/shared.js?v=19"></script>
+  <script src="/tierlist.js?v=19"></script>
 </body>
 </html>
