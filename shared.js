@@ -304,7 +304,7 @@ window.BV = (() => {
         <div class="acct-quick-links">
           <a href="/lookup/" class="btn btn-ghost btn-sm">My Stats</a>
           <a href="/coach/" class="btn btn-ghost btn-sm">AI Coach</a>
-          <a href="/upgrade/" class="btn btn-ghost btn-sm">Upgrade Guide</a>
+          <a href="/coach/?tab=upgrade" class="btn btn-ghost btn-sm">Upgrade Guide</a>
         </div>
 
         <div class="acct-footer">

@@ -6,6 +6,8 @@ const COACH_STATE = {
   type: "player",
   tag: "",
   subTab: "chat",
+  upgradeFilter: "unlocked",
+  upgradeSearch: "",
   profile: null,
   upgradeData: null,
   messages: [],
@@ -265,8 +267,8 @@ function buildPlayerActionPlan(p) {
         : "Focus all coins & power points on 1 S-tier brawler at a time instead of leveling evenly.",
       "Prioritize Star Power + Gadget + 2 Gears on your Ranked mains before starting a new upgrade.",
     ],
-    ctaHref: "/upgrade/",
-    ctaLabel: "Open Full Upgrade Guide →",
+    ctaHref: "#upgrade-tab",
+    ctaLabel: "Open Upgrade Guide Tab →",
   });
 
   cards.push({
@@ -339,7 +341,7 @@ function buildClubActionPlan(c) {
   return renderActionPlanCards("CLAN COACHING ACTION PLAN", "Recruiting, trophy health, and Mega Pig targets anchored to 50k average.", cards);
 }
 
-// ==================== INTEGRATED UPGRADE GUIDE ====================
+// ==================== FULL INTEGRATED UPGRADE GUIDE ====================
 function renderEmbeddedUpgradeGuide() {
   const box = document.getElementById("coach-upgrade-slot");
   if (!box) return;
@@ -348,60 +350,106 @@ function renderEmbeddedUpgradeGuide() {
     box.innerHTML = `<div class="empty-card">Loading personalized Level 11 Upgrade Guide &amp; Pro Builds...</div>`;
     return;
   }
-  const recs = (u.recommendations || []).filter((r) => r.unlocked).slice(0, 8);
-  if (!recs.length) {
-    box.innerHTML = `<div class="empty-card">All of your unlocked brawlers are already Level 11!</div>`;
-    return;
-  }
+
+  const all = u.recommendations || [];
+  const q = COACH_STATE.upgradeSearch.trim().toUpperCase();
+  const filtered = all.filter((r) => {
+    if (q && !r.name.toUpperCase().includes(q)) return false;
+    if (COACH_STATE.upgradeFilter === "unlocked") return r.unlocked;
+    if (COACH_STATE.upgradeFilter === "close") return r.unlocked && (r.current_power === 9 || r.current_power === 10);
+    if (COACH_STATE.upgradeFilter === "low") return r.unlocked && r.current_power <= 8;
+    if (COACH_STATE.upgradeFilter === "locked") return !r.unlocked;
+    return true;
+  });
+
+  const unlockedCnt = all.filter((r) => r.unlocked).length;
+  const closeCnt = all.filter((r) => r.unlocked && (r.current_power === 9 || r.current_power === 10)).length;
+  const lowCnt = all.filter((r) => r.unlocked && r.current_power <= 8).length;
+  const lockedCnt = all.filter((r) => !r.unlocked).length;
+
   box.innerHTML = `
-    <div class="coaching-header" style="margin-bottom:10px;">
-      <div>
-        <div class="verdict-eyebrow">LIVE AI META + PRO BUILDS</div>
-        <h3 class="brawl-title coaching-heading">⬆ Top Priority Level 11 Upgrades</h3>
+    <div class="explorer-toolbar">
+      <div class="filter-pills">
+        <button type="button" class="filter-pill ${COACH_STATE.upgradeFilter === "unlocked" ? "active" : ""}" data-ufilter="unlocked">All Under Lv 11 (${unlockedCnt})</button>
+        <button type="button" class="filter-pill ${COACH_STATE.upgradeFilter === "close" ? "active" : ""}" data-ufilter="close">Lv 9–10 (${closeCnt})</button>
+        <button type="button" class="filter-pill ${COACH_STATE.upgradeFilter === "low" ? "active" : ""}" data-ufilter="low">Lv 1–8 (${lowCnt})</button>
+        <button type="button" class="filter-pill ${COACH_STATE.upgradeFilter === "locked" ? "active" : ""}" data-ufilter="locked">Locked (${lockedCnt})</button>
       </div>
-      <a href="/upgrade/" class="btn btn-ghost btn-sm" style="text-decoration:none;">Full Upgrade Guide →</a>
+      <div class="explorer-controls">
+        <input type="search" id="coach-upgrade-search" class="search-input" placeholder="Filter brawler..." value="${BV.esc(COACH_STATE.upgradeSearch)}" />
+      </div>
     </div>
+
     <div class="upgrade-grid">
-      ${recs
-        .map((r, idx) => {
-          const b = r.build || {};
-          return `
-            <article class="upgrade-card">
-              <div class="upgrade-card-head">
-                <div class="upgrade-identity">
-                  <span class="upgrade-rank">#${idx + 1}</span>
-                  <img src="${BV.resolvePortraitUrl(r.portrait, r.id)}" alt="${BV.esc(r.name)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${r.id}.png'" />
-                  <div>
-                    <div class="upgrade-name-line">
-                      <span class="upgrade-name">${BV.esc(r.name)}</span>
-                      <span class="tier-pill tier-${r.tier.toLowerCase()}">${r.tier}</span>
+      ${
+        filtered.length
+          ? filtered
+              .map((r, idx) => {
+                const b = r.build || {};
+                const mapsHtml = (r.best_maps || [])
+                  .slice(0, 3)
+                  .map((m) => `<span class="mini-map-chip">${BV.esc(m.map)}</span>`)
+                  .join("");
+                return `
+                  <article class="upgrade-card">
+                    <div class="upgrade-card-head">
+                      <div class="upgrade-identity">
+                        <span class="upgrade-rank">#${idx + 1}</span>
+                        <img src="${BV.resolvePortraitUrl(r.portrait, r.id)}" alt="${BV.esc(r.name)}" loading="lazy" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${r.id}.png'" />
+                        <div>
+                          <div class="upgrade-name-line">
+                            <span class="upgrade-name">${BV.esc(r.name)}</span>
+                            <span class="tier-pill tier-${r.tier.toLowerCase()}">${r.tier}</span>
+                          </div>
+                          <div class="upgrade-level-row">
+                            <span class="level-tag">${r.unlocked ? `Lv ${r.current_power} → 11` : "Not Unlocked"}</span>
+                            <span class="prio-tag prio-${r.tier.toLowerCase()}">${BV.esc(r.priority_label)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="upgrade-meta-nums">
+                        <div class="meta-num"><span>WR</span><strong>${r.win_rate}%</strong></div>
+                        <div class="meta-num"><span>Pick</span><strong>${r.pick_rate}%</strong></div>
+                      </div>
                     </div>
-                    <div class="upgrade-level-row">
-                      <span class="level-tag">Lv ${r.current_power} → 11</span>
-                      <span class="prio-tag prio-${r.tier.toLowerCase()}">${BV.esc(r.priority_label)}</span>
+                    <div class="upgrade-cost-row">
+                      <span class="cost-chip cost-coins">🪙 ${r.coins_needed.toLocaleString()}</span>
+                      <span class="cost-chip cost-pp">⚡ ${r.pp_needed.toLocaleString()} PP</span>
                     </div>
-                  </div>
-                </div>
-                <div class="upgrade-meta-nums">
-                  <div class="meta-num"><span>WR</span><strong>${r.win_rate}%</strong></div>
-                </div>
-              </div>
-              <div class="upgrade-cost-row">
-                <span class="cost-chip cost-coins">🪙 ${r.coins_needed.toLocaleString()}</span>
-                <span class="cost-chip cost-pp">⚡ ${r.pp_needed.toLocaleString()} PP</span>
-              </div>
-              <div class="build-box">
-                <div class="build-title">PRO META BUILD</div>
-                <div class="build-row"><span class="build-key">★ SP</span><span class="build-val">${BV.esc(b.star_power || "N/A")}${b.owns_star_power ? '<span class="owned-badge">✓</span>' : ""}</span></div>
-                <div class="build-row"><span class="build-key">⚙ Gadget</span><span class="build-val">${BV.esc(b.gadget || "N/A")}${b.owns_gadget ? '<span class="owned-badge">✓</span>' : ""}</span></div>
-                <div class="build-row"><span class="build-key">⛨ Gears</span><span class="build-val">${BV.esc((b.gears || []).join(" + "))}</span></div>
-              </div>
-            </article>
-          `;
-        })
-        .join("")}
+                    <div class="build-box">
+                      <div class="build-title">PRO META BUILD${b.pro_samples ? `<span class="build-sample">${b.pro_samples} pros</span>` : ""}</div>
+                      <div class="build-row"><span class="build-key">★ SP</span><span class="build-val">${BV.esc(b.star_power || "N/A")}${b.owns_star_power ? '<span class="owned-badge">✓</span>' : ""}</span></div>
+                      <div class="build-row"><span class="build-key">⚙ Gadget</span><span class="build-val">${BV.esc(b.gadget || "N/A")}${b.owns_gadget ? '<span class="owned-badge">✓</span>' : ""}</span></div>
+                      <div class="build-row"><span class="build-key">⛨ Gears</span><span class="build-val">${BV.esc((b.gears || []).join(" + "))}</span></div>
+                    </div>
+                    ${mapsHtml ? `<div class="upgrade-maps"><span class="maps-lbl">Best maps:</span>${mapsHtml}</div>` : ""}
+                  </article>
+                `;
+              })
+              .join("")
+          : `<div class="empty-card">No brawlers match this filter.</div>`
+      }
     </div>
   `;
+
+  box.querySelectorAll("[data-ufilter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      COACH_STATE.upgradeFilter = btn.dataset.ufilter;
+      renderEmbeddedUpgradeGuide();
+    });
+  });
+  const sEl = document.getElementById("coach-upgrade-search");
+  if (sEl) {
+    sEl.addEventListener("input", (e) => {
+      COACH_STATE.upgradeSearch = e.target.value;
+      renderEmbeddedUpgradeGuide();
+      const fresh = document.getElementById("coach-upgrade-search");
+      if (fresh) {
+        fresh.focus();
+        fresh.setSelectionRange(fresh.value.length, fresh.value.length);
+      }
+    });
+  }
 }
 
 async function ensureUpgradeGuideLoaded() {
@@ -433,6 +481,13 @@ function renderCoachTabContent() {
 
   if (COACH_STATE.subTab === "plan") {
     slot.innerHTML = isClub ? buildClubActionPlan(p) : buildPlayerActionPlan(p);
+    slot.querySelectorAll('a[href="#upgrade-tab"]').forEach((lnk) => {
+      lnk.addEventListener("click", (e) => {
+        e.preventDefault();
+        COACH_STATE.subTab = "upgrade";
+        renderCoachWorkspace();
+      });
+    });
     return;
   }
 
@@ -675,12 +730,13 @@ async function loadCoachTarget(type, rawTag) {
         : await BV.fetchPlayer(norm, true);
     COACH_STATE.type = type;
     COACH_STATE.tag = norm;
-    COACH_STATE.subTab = "chat";
+    const urlTab = new URLSearchParams(window.location.search).get("tab");
+    COACH_STATE.subTab = urlTab && ["chat", "roadmap", "plan", "upgrade"].includes(urlTab) ? urlTab : "chat";
     COACH_STATE.profile = data;
     COACH_STATE.upgradeData = null;
     COACH_STATE.messages = [];
     renderCoachWorkspace();
-    askAiCoach("");
+    if (COACH_STATE.subTab === "chat") askAiCoach("");
   } catch (err) {
     ws.innerHTML = `<div class="empty-card error-card">${BV.esc(err.message || "Could not load tag.")}</div>`;
   } finally {
