@@ -3946,6 +3946,54 @@ body {
   gap: 14px;
 }
 
+/* AI Coach Panel */
+.ai-coach-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-color: rgba(245, 183, 39, 0.25);
+}
+.ai-coach-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ai-coach-output {
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-height: 72px;
+}
+.ai-coach-prose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #e4e4e7;
+}
+.ai-coach-h {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--gold);
+  margin-top: 4px;
+}
+.ai-coach-p { margin: 0; }
+.ai-coach-ul {
+  margin: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ai-coach-prose strong { color: var(--text); }
+.ai-coach-prose code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
 @media (max-width: 920px) {
   .app-shell { padding: 10px 12px 24px; }
   .site-nav { top: 6px; }

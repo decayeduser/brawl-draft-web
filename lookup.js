@@ -2068,6 +2068,155 @@ function renderBrawlerExplorer(p) {
   `;
 }
 
+function formatCoachMarkdown(raw) {
+  const safe = BV.esc(String(raw || "").trim());
+  const lines = safe.split(/\r?\n/);
+  const out = [];
+  let inList = false;
+
+  const inlineFmt = (s) =>
+    s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) {
+      if (inList) {
+        out.push("</ul>");
+        inList = false;
+      }
+      continue;
+    }
+    if (/^#{1,3}\s+/.test(t)) {
+      if (inList) {
+        out.push("</ul>");
+        inList = false;
+      }
+      out.push(`<h4 class="ai-coach-h">${inlineFmt(t.replace(/^#{1,3}\s+/, ""))}</h4>`);
+    } else if (/^[-*•]\s+/.test(t) || /^\d+\.\s+/.test(t)) {
+      if (!inList) {
+        out.push('<ul class="ai-coach-ul">');
+        inList = true;
+      }
+      out.push(`<li>${inlineFmt(t.replace(/^([-*•]|\d+\.)\s+/, ""))}</li>`);
+    } else {
+      if (inList) {
+        out.push("</ul>");
+        inList = false;
+      }
+      out.push(`<p class="ai-coach-p">${inlineFmt(t)}</p>`);
+    }
+  }
+  if (inList) out.push("</ul>");
+  return out.join("");
+}
+
+function renderAiCoachPanel(targetType, tag, name) {
+  const prompts =
+    targetType === "club"
+      ? [
+          { label: "Full Clan Audit", q: "" },
+          { label: "Recruiting Plan", q: "Give a concrete recruiting & kick plan to raise this clan above the 50k trophy average." },
+          { label: "Mega Pig & Leadership", q: "How should we organize Mega Pig and leadership roles based on this clan's stats?" },
+          { label: "Honest Roast", q: "Roast this clan brutally but accurately using its real trophy stats, then give 2 fixes." },
+        ]
+      : [
+          { label: "Full Breakdown", q: "" },
+          { label: "Best 3 Brawlers to Push", q: "Which exact 3 brawlers on my account should I push or upgrade first this week and why?" },
+          { label: "Fix My Recent Losses", q: "Analyze my recent match history and tell me why I am losing games and what to change." },
+          { label: "Honest Roast", q: "Roast my account brutally using my real stats vs the 50k average, then tell me how to fix it." },
+        ];
+
+  return `
+    <section class="panel ai-coach-panel">
+      <div class="coaching-header">
+        <div>
+          <div class="verdict-eyebrow">✦ AI COACH • LIVE DATA ANALYSIS</div>
+          <h3 class="brawl-title coaching-heading">Personalized AI Coaching for ${BV.esc(name)}</h3>
+        </div>
+        <span id="ai-coach-status-badge" class="stat-chip">READY</span>
+      </div>
+
+      <div class="ai-coach-prompts">
+        ${prompts
+          .map(
+            (pr) =>
+              `<button type="button" class="filter-pill ai-prompt-btn" data-ai-q="${BV.esc(pr.q)}">${BV.esc(pr.label)}</button>`
+          )
+          .join("")}
+      </div>
+
+      <form id="ai-coach-form" class="tag-input-row">
+        <input
+          type="text"
+          id="ai-coach-input"
+          class="search-input tag-field"
+          style="text-transform:none;"
+          maxlength="240"
+          placeholder="Ask AI Coach anything about ${BV.esc(name)}..."
+        />
+        <button type="submit" id="ai-coach-send" class="btn btn-gold btn-sm">Ask AI Coach</button>
+      </form>
+
+      <div id="ai-coach-output" class="ai-coach-output">
+        <div class="muted-tag">Generating personalized AI coaching...</div>
+      </div>
+    </section>
+  `;
+}
+
+async function runAiCoachQuery(targetType, tag, question = "") {
+  const outEl = document.getElementById("ai-coach-output");
+  const badgeEl = document.getElementById("ai-coach-status-badge");
+  const sendBtn = document.getElementById("ai-coach-send");
+  if (!outEl) return;
+
+  if (badgeEl) badgeEl.textContent = "THINKING...";
+  if (sendBtn) sendBtn.disabled = true;
+  outEl.innerHTML = `<div class="muted-tag">Analyzing live stats &amp; meta with AI Coach...</div>`;
+
+  try {
+    const res = await BV.apiFetch("/api/v1/coach", {
+      method: "POST",
+      body: JSON.stringify({ target_type: targetType, tag, question }),
+    });
+    if (res.ai_enabled && res.response) {
+      if (badgeEl) badgeEl.textContent = "AI LIVE";
+      outEl.innerHTML = `<div class="ai-coach-prose dyn-fade">${formatCoachMarkdown(res.response)}</div>`;
+    } else {
+      if (badgeEl) badgeEl.textContent = "DATA MODE";
+      outEl.innerHTML = `
+        <div class="muted-tag">
+          Live LLM responses aren't enabled yet (${BV.esc(res.message || "add GEMINI_API_KEY on server")}). Your full data-driven coaching breakdown is ready below.
+        </div>
+      `;
+    }
+  } catch (err) {
+    if (badgeEl) badgeEl.textContent = "DATA MODE";
+    outEl.innerHTML = `<div class="muted-tag">AI Coach temporarily unavailable (${BV.esc(err.message || "error")}). Use the data-driven Action Plan below.</div>`;
+  } finally {
+    if (sendBtn) sendBtn.disabled = false;
+  }
+}
+
+function bindAiCoachHandlers(targetType, tag) {
+  const form = document.getElementById("ai-coach-form");
+  const input = document.getElementById("ai-coach-input");
+  if (form && input) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      runAiCoachQuery(targetType, tag, input.value.trim());
+    });
+  }
+  document.querySelectorAll(".ai-prompt-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const q = btn.dataset.aiQ || "";
+      if (input) input.value = q;
+      runAiCoachQuery(targetType, tag, q);
+    });
+  });
+  runAiCoachQuery(targetType, tag, "");
+}
+
 function renderDynamicPlayerWorkspace() {
   const container = document.getElementById("player-sub-content");
   const p = LOOKUP_STATE.lastPlayer;
@@ -2103,13 +2252,23 @@ function renderDynamicPlayerWorkspace() {
     container.innerHTML = `
       <div class="overview-stack dyn-fade">
         ${renderGoalRoadmap(p, rating)}
+      </div>
+    `;
+    return;
+  }
+
+  if (LOOKUP_STATE.subTab === "coach") {
+    container.innerHTML = `
+      <div class="overview-stack dyn-fade">
+        ${renderAiCoachPanel("player", p.tag, p.name)}
         ${renderCoachingSection(
-          "HOW TO RAISE YOUR SCORE",
+          "DATA ACTION PLAN",
           "Strict competitive benchmarks: 50k trophies = average (100k max), 18k 3v3 wins, 65 Lv 11s, 45 brawlers at 1k+.",
           generatePlayerCoaching(p, rating)
         )}
       </div>
     `;
+    bindAiCoachHandlers("player", p.tag);
     return;
   }
 
@@ -2252,9 +2411,10 @@ function renderPlayerProfile(p) {
 
     <!-- Dynamic Workspace Tabs -->
     <nav class="lookup-dyn-tabs" aria-label="Player sections">
-      <button type="button" class="lookup-dyn-tab active" data-sub="overview">Overview &amp; Progress</button>
+      <button type="button" class="lookup-dyn-tab active" data-sub="overview">Overview</button>
       <button type="button" class="lookup-dyn-tab" data-sub="matches">Matches <span class="lookup-dyn-count">${enrichedMatches.length}</span></button>
-      <button type="button" class="lookup-dyn-tab" data-sub="roadmap">Goal Roadmap</button>
+      <button type="button" class="lookup-dyn-tab" data-sub="roadmap">Roadmap</button>
+      <button type="button" class="lookup-dyn-tab" data-sub="coach">✦ AI Coach</button>
       <button type="button" class="lookup-dyn-tab" data-sub="brawlers">Brawlers <span class="lookup-dyn-count">${p.brawlers_owned}</span></button>
     </nav>
 
@@ -2329,13 +2489,23 @@ function renderDynamicClubWorkspace() {
     container.innerHTML = `
       <div class="overview-stack dyn-fade">
         ${renderVerdictCard("CLAN JUDGE • 50,000 🏆 AVERAGE BENCHMARK", verdict, tierBarHtml)}
+      </div>
+    `;
+    return;
+  }
+
+  if (LOOKUP_STATE.clubTab === "coach") {
+    container.innerHTML = `
+      <div class="overview-stack dyn-fade">
+        ${renderAiCoachPanel("club", c.tag, c.name)}
         ${renderCoachingSection(
-          "HOW TO RAISE YOUR CLAN SCORE",
+          "CLAN DATA ACTION PLAN",
           "Strict recruiting, median vs average health, and trophy spread targets anchored to the 50k benchmark.",
           generateClubCoaching(c, rating)
         )}
       </div>
     `;
+    bindAiCoachHandlers("club", c.tag);
     return;
   }
 
@@ -2507,7 +2677,8 @@ function renderClubProfile(c) {
     </div>
 
     <nav class="lookup-dyn-tabs" aria-label="Clan sections">
-      <button type="button" class="lookup-dyn-tab active" data-ctab="overview">Overview &amp; Recruiting</button>
+      <button type="button" class="lookup-dyn-tab active" data-ctab="overview">Overview</button>
+      <button type="button" class="lookup-dyn-tab" data-ctab="coach">✦ AI Coach</button>
       <button type="button" class="lookup-dyn-tab" data-ctab="members">Members <span class="lookup-dyn-count">${c.member_count} / 30</span></button>
     </nav>
 
