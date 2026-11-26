@@ -237,14 +237,134 @@ window.BV = (() => {
     const tag = getSavedTag();
 
     slot.innerHTML = `
-      <div class="nav-user-pill" title="Synced across all tabs">
+      <button type="button" class="nav-user-pill" id="bv-nav-profile-btn" title="Account Settings &amp; Brawl Stars ID">
         ${avatar ? `<img src="${esc(avatar)}" alt="" class="nav-user-avatar" referrerpolicy="no-referrer" />` : ""}
         <span class="nav-user-name">${esc(firstName)}</span>
-        ${tag ? `<span class="nav-user-tag">${esc(tag)}</span>` : ""}
-      </div>
-      <button type="button" class="nav-signout-btn" id="bv-nav-signout" title="Sign out">↪</button>
+        ${tag ? `<span class="nav-user-tag">${esc(tag)}</span>` : `<span class="nav-user-tag nav-tag-empty">Set #TAG</span>`}
+        <span class="nav-user-gear" aria-hidden="true">⚙</span>
+      </button>
     `;
-    document.getElementById("bv-nav-signout").addEventListener("click", signOut);
+    document.getElementById("bv-nav-profile-btn").addEventListener("click", openProfileSettingsModal);
+  }
+
+  function openProfileSettingsModal() {
+    if (!currentUser) {
+      signInWithGoogle();
+      return;
+    }
+
+    let modal = document.getElementById("bv-account-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "bv-account-modal";
+      modal.className = "modal-backdrop hidden";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      document.body.appendChild(modal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) modal.classList.add("hidden");
+      });
+    }
+
+    const fullName = currentProfile?.display_name || currentUser.user_metadata?.full_name || "Player";
+    const email = currentUser.email || "";
+    const avatar = currentProfile?.avatar_url || currentUser.user_metadata?.avatar_url || "";
+    const savedTag = getSavedTag();
+
+    modal.innerHTML = `
+      <div class="modal-card acct-modal-card dyn-fade">
+        <button type="button" id="bv-acct-close" class="modal-close" aria-label="Close">✕</button>
+        <div class="acct-modal-head">
+          ${avatar ? `<img src="${esc(avatar)}" alt="" class="acct-modal-avatar" referrerpolicy="no-referrer" />` : ""}
+          <div>
+            <h3 class="brawl-title" style="font-size:18px;">${esc(fullName)}</h3>
+            <div class="muted-tag">${esc(email)}</div>
+          </div>
+        </div>
+
+        <div class="acct-section">
+          <label for="bv-acct-tag-input" class="acct-lbl">BRAWL STARS ACCOUNT ID (#TAG)</label>
+          <p class="acct-hint">Synced to your Google account across all tabs and devices.</p>
+          <form id="bv-acct-tag-form" class="tag-input-row">
+            <input
+              type="text"
+              id="bv-acct-tag-input"
+              class="search-input tag-field"
+              value="${esc(savedTag)}"
+              placeholder="Enter Tag (e.g. #2PP)"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+            />
+            <button type="submit" id="bv-acct-save-btn" class="btn btn-gold btn-sm">Save ID</button>
+          </form>
+          <div id="bv-acct-status" class="acct-status hidden"></div>
+        </div>
+
+        <div class="acct-quick-links">
+          <a href="/lookup/" class="btn btn-ghost btn-sm">My Stats</a>
+          <a href="/coach/" class="btn btn-ghost btn-sm">AI Coach</a>
+          <a href="/upgrade/" class="btn btn-ghost btn-sm">Upgrade Guide</a>
+        </div>
+
+        <div class="acct-footer">
+          ${savedTag ? `<button type="button" id="bv-acct-clear-tag" class="btn btn-ghost btn-sm">Unlink #TAG</button>` : `<span></span>`}
+          <button type="button" id="bv-acct-signout" class="btn btn-danger btn-sm">Sign Out</button>
+        </div>
+      </div>
+    `;
+
+    modal.classList.remove("hidden");
+    document.getElementById("bv-acct-close").addEventListener("click", () => modal.classList.add("hidden"));
+
+    document.getElementById("bv-acct-tag-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("bv-acct-tag-input");
+      const saveBtn = document.getElementById("bv-acct-save-btn");
+      const statusEl = document.getElementById("bv-acct-status");
+      const norm = normalizeTag(input.value);
+      if (!norm || norm.length < 4) {
+        statusEl.className = "acct-status acct-err";
+        statusEl.textContent = "Please enter a valid Brawl Stars tag (e.g. #2PP).";
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving...";
+      statusEl.className = "acct-status";
+      statusEl.textContent = `Verifying & syncing ${norm}...`;
+
+      try {
+        const profile = await fetchPlayer(norm, true);
+        setSavedTag(norm);
+        setCachedProfile(profile);
+        await syncTagToCloud(norm);
+        statusEl.className = "acct-status acct-ok";
+        statusEl.textContent = `✓ Linked ${profile.name} (${norm}) • 🏆 ${profile.trophies.toLocaleString()} — synced!`;
+        notifyAuthListeners();
+      } catch (err) {
+        statusEl.className = "acct-status acct-err";
+        statusEl.textContent = err.message || "Could not verify that Brawl Stars tag.";
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save ID";
+      }
+    });
+
+    const clearBtn = document.getElementById("bv-acct-clear-tag");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", async () => {
+        setSavedTag("");
+        await syncTagToCloud("");
+        modal.classList.add("hidden");
+        notifyAuthListeners();
+      });
+    }
+
+    document.getElementById("bv-acct-signout").addEventListener("click", async () => {
+      modal.classList.add("hidden");
+      await signOut();
+    });
   }
 
   function renderAiAuthGate(title, desc) {
@@ -260,7 +380,6 @@ window.BV = (() => {
         <div class="ai-gate-perks">
           <span>✓ 100% Free Forever</span>
           <span>✓ Syncs your #TAG across all tabs &amp; devices</span>
-          <span>✓ Protects AI from spam</span>
         </div>
       </div>
     `;

@@ -4118,6 +4118,95 @@ body {
   margin-top: 2px;
 }
 
+/* Clickable Nav Profile Pill & Account Settings Modal */
+button.nav-user-pill {
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+}
+button.nav-user-pill:hover {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.1);
+}
+.nav-user-gear {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 2px;
+}
+.nav-tag-empty {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.acct-modal-card {
+  max-width: 440px;
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+.acct-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 32px;
+}
+.acct-modal-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-strong);
+}
+.acct-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.acct-lbl {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  color: var(--gold);
+}
+.acct-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+.acct-status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+}
+.acct-status.acct-ok {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--green);
+}
+.acct-status.acct-err {
+  background: rgba(251, 113, 133, 0.12);
+  color: #fda4af;
+}
+.acct-quick-links {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.acct-quick-links a {
+  text-align: center;
+  text-decoration: none;
+}
+.acct-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
 @media (max-width: 920px) {
   .app-shell { padding: 10px 12px 24px; }
   .site-nav { top: 6px; }

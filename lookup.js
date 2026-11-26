@@ -2391,10 +2391,10 @@ function renderPlayerProfile(p) {
           </div>
           <div class="profile-actions">
             ${battleMeBtn}
-            <button type="button" id="save-my-tag-btn" class="btn ${isSaved ? "btn-blue" : "btn-gold"} btn-sm">
+            <a href="/coach/?player=${encodeURIComponent(p.tag)}" class="btn btn-gold btn-sm" style="text-decoration:none;">✦ AI Coach &amp; Roadmap →</a>
+            <button type="button" id="save-my-tag-btn" class="btn ${isSaved ? "btn-blue" : "btn-ghost"} btn-sm">
               ${isSaved ? "✓ Saved ID" : "★ Save ID"}
             </button>
-            <a href="/upgrade/" class="btn btn-ghost btn-sm">Upgrade Guide →</a>
           </div>
         </div>
 
@@ -2419,10 +2419,8 @@ function renderPlayerProfile(p) {
 
     <!-- Dynamic Workspace Tabs -->
     <nav class="lookup-dyn-tabs" aria-label="Player sections">
-      <button type="button" class="lookup-dyn-tab active" data-sub="overview">Overview</button>
+      <button type="button" class="lookup-dyn-tab active" data-sub="overview">Overview &amp; Progress</button>
       <button type="button" class="lookup-dyn-tab" data-sub="matches">Matches <span class="lookup-dyn-count">${enrichedMatches.length}</span></button>
-      <button type="button" class="lookup-dyn-tab" data-sub="roadmap">Roadmap</button>
-      <button type="button" class="lookup-dyn-tab" data-sub="coach">✦ AI Coach</button>
       <button type="button" class="lookup-dyn-tab" data-sub="brawlers">Brawlers <span class="lookup-dyn-count">${p.brawlers_owned}</span></button>
     </nav>
 
@@ -2665,6 +2663,9 @@ function renderClubProfile(c) {
               <span class="stat-chip">${BV.esc(c.type.toUpperCase())}</span>
             </div>
           </div>
+          <div class="profile-actions">
+            <a href="/coach/?club=${encodeURIComponent(c.tag)}" class="btn btn-gold btn-sm" style="text-decoration:none;">✦ Clan AI Coach →</a>
+          </div>
         </div>
         ${c.description ? `<p class="club-desc">${BV.esc(c.description)}</p>` : ""}
         <div class="stats-grid">
@@ -2686,7 +2687,6 @@ function renderClubProfile(c) {
 
     <nav class="lookup-dyn-tabs" aria-label="Clan sections">
       <button type="button" class="lookup-dyn-tab active" data-ctab="overview">Overview</button>
-      <button type="button" class="lookup-dyn-tab" data-ctab="coach">✦ AI Coach</button>
       <button type="button" class="lookup-dyn-tab" data-ctab="members">Members <span class="lookup-dyn-count">${c.member_count} / 30</span></button>
     </nav>
 
