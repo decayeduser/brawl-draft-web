@@ -599,6 +599,7 @@ async function requestRecommendations() {
     enemy_picks: (pickingIsAlly ? STATE.enemyPicks : STATE.allyPicks).filter(Boolean),
     blue_picks: STATE.allyPicks.filter(Boolean),
     red_picks: STATE.enemyPicks.filter(Boolean),
+    blue_is_first_pick: STATE.isFirstPickTeam,
     next_pick_slot: STATE.activeSnakeSlot,
     is_first_pick_team: mapping.isFirstPickSide,
     allowed_brawlers: useLv11Filter ? Array.from(STATE.playerLevel11Set) : null,
@@ -627,6 +628,15 @@ async function requestRecommendations() {
         const estBlue = pickingIsAlly ? topWr : 100 - topWr;
         renderWinProbBar(50 + (estBlue - 50) * 0.45);
       }
+    }
+
+    const banStratEl = document.getElementById("rec-bans-strategy");
+    if (banStratEl) {
+      banStratEl.textContent = data.ban_strategy_label
+        ? `🚫 ${data.ban_strategy_label}`
+        : STATE.isFirstPickTeam
+          ? "🚫 BLUE 1ST PICK • BAN COUNTERS & CHEESE"
+          : "🚫 BLUE LAST PICK • BAN META 1ST PICKS";
     }
 
     if (Array.isArray(data.recommended_bans) && data.recommended_bans.length) {
@@ -725,7 +735,14 @@ async function requestRecommendations() {
         <span class="stat-chip">Ctr ${rec.counter_score}%</span>
       `;
 
-      info.append(nameRow, barBg, reason, statsRow);
+      info.append(nameRow, barBg, reason);
+      if (rec.risk_warning) {
+        const riskEl = document.createElement("div");
+        riskEl.className = "rec-risk-chip";
+        riskEl.textContent = `⚠ ${rec.risk_warning}`;
+        info.appendChild(riskEl);
+      }
+      info.appendChild(statsRow);
 
       const pickBtn = document.createElement("button");
       pickBtn.className = "btn btn-gold rec-pick-btn";
