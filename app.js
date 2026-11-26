@@ -570,6 +570,20 @@ async function requestRecommendations() {
   const spinner = document.getElementById("rec-loading");
   const mapping = getSlotMapping(STATE.activeSnakeSlot, STATE.isFirstPickTeam);
 
+  await BV.authReady;
+  if (reqId !== latestRequestId) return;
+  if (!BV.getAuthUser()) {
+    spinner.classList.add("hidden");
+    document.getElementById("rec-subtitle").textContent = "Free Google sign-in required for AI Picks";
+    const bansEl = document.getElementById("rec-bans-list");
+    if (bansEl) bansEl.innerHTML = `<span class="muted-tag">Sign in with Google (Free) to unlock AI Ban Suggestions.</span>`;
+    recList.innerHTML = BV.renderAiAuthGate(
+      "Sign in to Unlock Ranked Drafting AI",
+      "Access live AI pick recommendations, map ban suggestions, and Blue vs Red win-chance predictions — 100% free with a Google account."
+    );
+    return;
+  }
+
   document.getElementById("rec-subtitle").textContent =
     `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map}`;
   spinner.classList.remove("hidden");
@@ -843,6 +857,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("draft-player-tag").value = savedTag;
     loadPlayerForDraft(savedTag, false);
   }
+
+  BV.onAuthChange(() => {
+    const synced = BV.getSavedTag();
+    if (synced && (!STATE.playerProfile || BV.normalizeTag(STATE.playerProfile.tag) !== synced)) {
+      document.getElementById("draft-player-tag").value = synced;
+      loadPlayerForDraft(synced, false);
+    }
+    requestRecommendations();
+  });
 
   loadMetadata();
 });

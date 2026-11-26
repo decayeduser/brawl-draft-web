@@ -2111,6 +2111,13 @@ function formatCoachMarkdown(raw) {
 }
 
 function renderAiCoachPanel(targetType, tag, name) {
+  if (!BV.getAuthUser()) {
+    return BV.renderAiAuthGate(
+      "Sign in with Google to Use AI Coach",
+      "Unlock live Gemini AI coaching for any Player or Clan — 100% free with a Google account. Your Brawl Stars #TAG also syncs across all tabs."
+    );
+  }
+
   const prompts =
     targetType === "club"
       ? [
@@ -2199,6 +2206,7 @@ async function runAiCoachQuery(targetType, tag, question = "") {
 }
 
 function bindAiCoachHandlers(targetType, tag) {
+  if (!BV.getAuthUser()) return;
   const form = document.getElementById("ai-coach-form");
   const input = document.getElementById("ai-coach-input");
   if (form && input) {
@@ -2802,5 +2810,13 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("lookup-tag-input").value = saved;
       runLookup("player", saved);
     }
+    BV.authReady.then(() => {
+      const synced = BV.getSavedTag();
+      const inp = document.getElementById("lookup-tag-input");
+      if (synced && inp && !inp.value && LOOKUP_STATE.type === "player" && !LOOKUP_STATE.lastPlayer) {
+        inp.value = synced;
+        runLookup("player", synced);
+      }
+    });
   }
 });

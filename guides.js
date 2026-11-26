@@ -10,10 +10,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_A3dcfemnDJuiRcndoKerTA_s185fVRY";
 const IS_CONFIGURED =
   !SUPABASE_URL.includes("REPLACE_WITH") && !SUPABASE_ANON_KEY.includes("REPLACE_WITH");
 
-const sb =
+const sb = (window.BV && window.BV.sb) || (
   IS_CONFIGURED && window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+    : null
+);
 
 const GUIDES_STATE = {
   user: null,

@@ -241,8 +241,17 @@ async function askAiCoach(question = "") {
 }
 
 async function loadCoachTarget(type, rawTag) {
-  const norm = BV.normalizeTag(rawTag);
+  await BV.authReady;
   const ws = document.getElementById("coach-workspace");
+  if (!BV.getAuthUser()) {
+    ws.innerHTML = BV.renderAiAuthGate(
+      "Sign in with Google to Use AI Coach",
+      "Get personalized Gemini AI breakdowns, match analysis, and custom coaching for your account or clan — 100% free with a Google account."
+    );
+    return;
+  }
+
+  const norm = BV.normalizeTag(rawTag);
   const btn = document.getElementById("coach-load-btn");
   if (!norm || norm.length < 4) {
     ws.innerHTML = `<div class="empty-card error-card">Enter a valid Brawl Stars tag (e.g. #2PP).</div>`;
@@ -273,7 +282,7 @@ async function loadCoachTarget(type, rawTag) {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll("[data-ctype]").forEach((btn) => {
     btn.addEventListener("click", () => setCoachType(btn.dataset.ctype));
   });
@@ -283,20 +292,36 @@ document.addEventListener("DOMContentLoaded", () => {
     loadCoachTarget(COACH_STATE.type, document.getElementById("coach-tag-input").value);
   });
 
-  const params = new URLSearchParams(window.location.search);
-  const qPlayer = params.get("player");
-  const qClub = params.get("club");
-  if (qClub) {
-    setCoachType("club");
-    loadCoachTarget("club", qClub);
-  } else if (qPlayer) {
-    setCoachType("player");
-    loadCoachTarget("player", qPlayer);
-  } else {
-    const saved = BV.getSavedTag();
-    if (saved) {
-      document.getElementById("coach-tag-input").value = saved;
-      loadCoachTarget("player", saved);
+  const ws = document.getElementById("coach-workspace");
+  const initCoachView = () => {
+    if (!BV.getAuthUser()) {
+      ws.innerHTML = BV.renderAiAuthGate(
+        "Sign in with Google to Use AI Coach",
+        "Get personalized Gemini AI breakdowns, match analysis, and custom coaching for your account or clan — 100% free with a Google account."
+      );
+      return;
     }
-  }
+    const params = new URLSearchParams(window.location.search);
+    const qPlayer = params.get("player");
+    const qClub = params.get("club");
+    if (qClub) {
+      setCoachType("club");
+      loadCoachTarget("club", qClub);
+    } else if (qPlayer) {
+      setCoachType("player");
+      loadCoachTarget("player", qPlayer);
+    } else {
+      const saved = BV.getSavedTag();
+      if (saved) {
+        document.getElementById("coach-tag-input").value = saved;
+        loadCoachTarget("player", saved);
+      } else {
+        ws.innerHTML = `<div class="empty-card">You're signed in! Enter your Brawl Stars Player Tag or Clan Tag above to start AI Coaching.</div>`;
+      }
+    }
+  };
+
+  await BV.authReady;
+  initCoachView();
+  BV.onAuthChange(() => initCoachView());
 });
