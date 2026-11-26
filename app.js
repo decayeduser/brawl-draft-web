@@ -735,14 +735,7 @@ async function requestRecommendations() {
         <span class="stat-chip">Ctr ${rec.counter_score}%</span>
       `;
 
-      info.append(nameRow, barBg, reason);
-      if (rec.risk_warning) {
-        const riskEl = document.createElement("div");
-        riskEl.className = "rec-risk-chip";
-        riskEl.textContent = `⚠ ${rec.risk_warning}`;
-        info.appendChild(riskEl);
-      }
-      info.appendChild(statsRow);
+      info.append(nameRow, barBg, reason, statsRow);
 
       const pickBtn = document.createElement("button");
       pickBtn.className = "btn btn-gold rec-pick-btn";
