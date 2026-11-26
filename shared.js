@@ -307,6 +307,8 @@ window.BV = (() => {
           <a href="/coach/?tab=upgrade" class="btn btn-ghost btn-sm">Upgrade Guide</a>
         </div>
 
+        <div id="bv-acct-usage" class="acct-hint" style="margin-top:10px;">Loading today's AI usage...</div>
+
         <div class="acct-footer">
           ${savedTag ? `<button type="button" id="bv-acct-clear-tag" class="btn btn-ghost btn-sm">Unlink #TAG</button>` : `<span></span>`}
           <button type="button" id="bv-acct-signout" class="btn btn-danger btn-sm">Sign Out</button>
@@ -365,6 +367,17 @@ window.BV = (() => {
       modal.classList.add("hidden");
       await signOut();
     });
+
+    fetchAiUsage()
+      .then((u) => {
+        const el = document.getElementById("bv-acct-usage");
+        if (!el || !u) return;
+        el.innerHTML = `Daily AI Quota: <strong>${u.coach.remaining}/${u.coach.limit}</strong> AI Coach • <strong>${u.draft.remaining}/${u.draft.limit}</strong> Drafting AI left today`;
+      })
+      .catch(() => {
+        const el = document.getElementById("bv-acct-usage");
+        if (el) el.textContent = "";
+      });
   }
 
   function renderAiAuthGate(title, desc) {
@@ -427,13 +440,14 @@ window.BV = (() => {
 
   async function apiFetch(endpointPath, options = {}) {
     const fullUrl = `${CLEAN_BASE_URL}${endpointPath}`;
-    const headers = Object.assign(
-      {
-        "Content-Type": "application/json",
-        "X-API-Key": API_KEY,
-      },
-      options.headers || {}
-    );
+    const baseHeaders = {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+    };
+    if (currentUser && currentUser.id) {
+      baseHeaders["X-User-Id"] = currentUser.id;
+    }
+    const headers = Object.assign(baseHeaders, options.headers || {});
 
     const resp = await fetch(fullUrl, {
       ...options,
@@ -445,13 +459,25 @@ window.BV = (() => {
       let msg = `HTTP ${resp.status}`;
       try {
         const errJson = await resp.json();
-        if (errJson.detail) msg = errJson.detail;
+        if (errJson.detail) {
+          msg = errJson.detail;
+        } else if (errJson.error) {
+          msg = resp.status === 429
+            ? "Slow down a bit — too many requests per minute. Please wait a few seconds and try again."
+            : errJson.error;
+        }
       } catch {
         // keep default message
       }
-      throw new Error(msg);
+      const err = new Error(msg);
+      err.status = resp.status;
+      throw err;
     }
     return resp.json();
+  }
+
+  async function fetchAiUsage() {
+    return apiFetch("/api/v1/ai/usage");
   }
 
   async function fetchPlayer(rawTag, forceRefresh = false) {
@@ -510,6 +536,7 @@ window.BV = (() => {
     onAuthChange,
     renderAiAuthGate,
     apiFetch,
+    fetchAiUsage,
     fetchPlayer,
     normalizeTag,
     tagForUrl,

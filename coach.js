@@ -11,7 +11,34 @@ const COACH_STATE = {
   profile: null,
   upgradeData: null,
   messages: [],
+  usage: null,
 };
+
+function updateCoachQuotaBadge() {
+  const el = document.getElementById("coach-quota-badge");
+  if (!el) return;
+  const u = COACH_STATE.usage;
+  if (!u || typeof u.remaining !== "number") {
+    el.textContent = "";
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  el.textContent = `${u.remaining}/${u.limit} left today`;
+  el.style.color = u.remaining === 0 ? "var(--red)" : u.remaining <= 5 ? "var(--gold)" : "var(--text-muted)";
+}
+
+async function refreshCoachUsage() {
+  try {
+    const res = await BV.fetchAiUsage();
+    if (res && res.coach) {
+      COACH_STATE.usage = res.coach;
+      updateCoachQuotaBadge();
+    }
+  } catch {
+    // ignore
+  }
+}
 
 const STEP_COST = {
   1: [20, 20], 2: [30, 35], 3: [50, 75], 4: [80, 140], 5: [130, 290],
@@ -520,7 +547,10 @@ function renderCoachTabContent() {
           <div class="verdict-eyebrow">✦ INTERACTIVE GEMINI AI COACH</div>
           <h3 class="brawl-title coaching-heading">Ask About ${BV.esc(p.name)}</h3>
         </div>
-        <span id="coach-status-badge" class="stat-chip">READY</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span id="coach-quota-badge" class="stat-chip hidden"></span>
+          <span id="coach-status-badge" class="stat-chip">READY</span>
+        </div>
       </div>
 
       <div class="ai-coach-prompts">
@@ -558,6 +588,8 @@ function renderCoachTabContent() {
   });
 
   renderCoachFeed();
+  updateCoachQuotaBadge();
+  if (!COACH_STATE.usage) refreshCoachUsage();
 }
 
 function renderCoachWorkspace() {
@@ -683,6 +715,10 @@ async function askAiCoach(question = "") {
       }),
     });
     entry.loading = false;
+    if (res.usage) {
+      COACH_STATE.usage = res.usage;
+      updateCoachQuotaBadge();
+    }
     if (res.ai_enabled && res.response) {
       entry.text = res.response;
       if (badge) badge.textContent = "AI LIVE";
@@ -693,7 +729,8 @@ async function askAiCoach(question = "") {
   } catch (err) {
     entry.loading = false;
     entry.error = err.message || "Could not reach AI Coach.";
-    if (badge) badge.textContent = "ERROR";
+    if (badge) badge.textContent = err.status === 429 ? "LIMIT REACHED" : "ERROR";
+    if (err.status === 429) refreshCoachUsage();
   } finally {
     if (btn) btn.disabled = false;
     renderCoachFeed();
