@@ -3480,3 +3480,478 @@ button, .snake-step, .ban-slot, .pick-slot, .brawler-tile, .mini-slot {
   .cmp-row { font-size: 12px; padding: 8px 9px; }
   .roadmap-grid { grid-template-columns: 1fr; }
 }
+
+
+/* ============================================================================
+   MINIMAL MODERN UI OVERHAUL (APPLIED ACROSS ALL BRAWLVAULT PAGES)
+   ============================================================================ */
+:root {
+  --bg-0: #09090b;
+  --bg-1: #0f0f12;
+  --bg-2: #16161b;
+  --surface: #111115;
+  --surface-strong: #18181e;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --gold: #f5b727;
+  --gold-soft: rgba(245, 183, 39, 0.12);
+  --blue: #38bdf8;
+  --blue-soft: rgba(56, 189, 248, 0.12);
+  --red: #fb7185;
+  --red-soft: rgba(251, 113, 133, 0.12);
+  --green: #34d399;
+  --text: #fafafa;
+  --muted: #9ca3af;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+body {
+  background:
+    radial-gradient(900px 420px at 50% -180px, rgba(245, 183, 39, 0.06), transparent 65%),
+    var(--bg-0);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.brawl-title {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  text-transform: none;
+  text-shadow: none;
+}
+
+.app-shell {
+  max-width: 1280px;
+  padding: 16px 20px 36px;
+  gap: 16px;
+}
+
+/* Minimal Frosted Navigation Bar */
+.site-nav {
+  position: sticky;
+  top: 10px;
+  z-index: 40;
+  padding: 8px 12px;
+  background: rgba(15, 15, 18, 0.84);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.nav-star {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--gold);
+  color: #09090b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.nav-logo {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nav-links {
+  gap: 4px;
+}
+
+.nav-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.nav-link:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-link.active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+/* Clean Minimal Panels, Heroes & Inputs */
+.panel,
+.page-header-card,
+.home-hero,
+.home-card,
+.profile-main,
+.rating-card,
+.upgrade-card,
+.guide-card,
+.tier-row,
+.match-analytics-panel,
+.strip-card,
+.winprob-card,
+.rec-bans-card,
+.player-filter-bar,
+.top-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.home-hero {
+  padding: 36px 24px;
+  border-radius: var(--radius-lg);
+}
+
+.home-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.home-tag-box,
+.stat-tile,
+.coach-card,
+.rot-card,
+.roadmap-stage,
+.cp-col,
+.cp-target-bar,
+.ma-kpi,
+.ma-box,
+.build-box,
+.club-member-row,
+.cmp-row,
+.cmp-player-card,
+.progress-svg,
+.progress-first-day {
+  background: var(--bg-1);
+  border-color: var(--border);
+}
+
+.search-input,
+.select-input {
+  background: var(--bg-0);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  color: var(--text);
+  font-weight: 600;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus,
+.select-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+/* Crisp Minimal Buttons */
+.btn {
+  border-radius: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.btn-gold {
+  background: var(--text);
+  color: #09090b;
+  border: 1px solid var(--text);
+  box-shadow: none;
+}
+.btn-gold:hover { background: #e4e4e7; }
+
+.btn-blue {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  box-shadow: none;
+}
+.btn-blue:hover { background: rgba(56, 189, 248, 0.22); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.06); }
+
+.filter-pill,
+.sub-tab,
+.lookup-type-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.filter-pill {
+  border-color: var(--border);
+  background: var(--bg-1);
+}
+.filter-pill.active,
+.sub-tab.active,
+.lookup-type-btn.active {
+  background: var(--text);
+  border-color: var(--text);
+  color: #09090b;
+  font-weight: 700;
+}
+
+.lookup-type-tabs,
+.sub-tabs-bar {
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+}
+
+.rating-card.score-elite {
+  background: var(--surface);
+  border-color: rgba(245, 183, 39, 0.38);
+}
+
+.verdict-panel {
+  border-left-width: 3px;
+  background: var(--surface);
+}
+.verdict-panel.verdict-elite,
+.verdict-panel.verdict-harsh {
+  background: var(--surface);
+}
+
+.rb-fill {
+  background: var(--gold);
+}
+
+/* ==================== DYNAMIC LOOKUP COMPONENTS ==================== */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dyn-fade {
+  animation: fadeSlideIn 0.2s ease-out;
+}
+
+/* Recent Searches Strip */
+.recent-searches-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.recent-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.recent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+}
+.recent-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-strong);
+}
+.recent-chip small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Circular Animated Rating Gauge */
+.rating-ring-wrap {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+}
+.rating-ring-svg {
+  width: 112px;
+  height: 112px;
+  transform: rotate(-90deg);
+}
+.rating-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 8;
+}
+.rating-ring-fg {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+.score-elite .rating-ring-fg { stroke: var(--gold); }
+.score-good .rating-ring-fg { stroke: var(--green); }
+.score-mid .rating-ring-fg { stroke: var(--blue); }
+.score-low .rating-ring-fg { stroke: var(--red); }
+
+.rating-ring-center {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+.rating-ring-center strong {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.rating-ring-center span {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* Dynamic Lookup Workspace Tabs */
+.lookup-dyn-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  position: sticky;
+  top: 66px;
+  z-index: 25;
+  backdrop-filter: blur(12px);
+}
+.lookup-dyn-tab {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s;
+}
+.lookup-dyn-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.lookup-dyn-tab.active {
+  background: var(--text);
+  color: #09090b;
+}
+.lookup-dyn-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.lookup-dyn-tab.active .lookup-dyn-count {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+/* Dynamic Brawler & Member Explorer Toolbar */
+.explorer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.explorer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.explorer-controls .search-input { width: 190px; padding: 7px 10px; font-size: 13px; }
+.explorer-controls .select-input { padding: 7px 10px; font-size: 12.5px; }
+
+.pb-card {
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.14s;
+}
+.pb-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+}
+
+.brawler-inspect-drawer {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bid-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.bid-ident {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bid-ident img {
+  width: 52px;
+  height: 52px;
+  border-radius: 11px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+.bid-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.overview-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 920px) {
+  .app-shell { padding: 10px 12px 24px; }
+  .site-nav { top: 6px; }
+  .lookup-dyn-tabs { top: 96px; }
+  .lookup-dyn-tab { padding: 8px 10px; font-size: 12px; }
+  .explorer-controls { width: 100%; }
+  .explorer-controls .search-input,
+  .explorer-controls .select-input { flex: 1 1 45%; width: auto; }
+}

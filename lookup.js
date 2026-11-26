@@ -6,14 +6,101 @@ const GAME_AVG_TROPHIES = 50000;
 
 const LOOKUP_STATE = {
   type: "player",
-  subTab: "matches",
+  subTab: "overview",
   matchFilter: "all",
   matchMode: "",
   historyMetric: "trophies",
+  brawlerSearch: "",
+  brawlerFilter: "all",
+  brawlerSort: "trophies",
+  selectedBrawler: null,
+  clubTab: "overview",
+  clubSearch: "",
+  clubFilter: "all",
+  clubSort: "trophies_desc",
   lastPlayer: null,
+  lastClub: null,
   lastRating: null,
+  lastVerdict: null,
+  lastEnrichedMatches: [],
   lastHistory: [],
 };
+
+const RECENT_KEY = "bv_recent_lookups";
+
+function getRecentLookups() {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]") || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentLookup(type, tag, name) {
+  const norm = BV.normalizeTag(tag);
+  if (!norm) return;
+  const list = getRecentLookups().filter((x) => !(x.type === type && x.tag === norm));
+  list.unshift({ type, tag: norm, name: name || norm });
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 6)));
+  } catch {
+    // ignore
+  }
+  renderRecentSearches();
+}
+
+function renderRecentSearches() {
+  const bar = document.getElementById("recent-searches-bar");
+  if (!bar) return;
+  const list = getRecentLookups();
+  if (!list.length) {
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+  bar.innerHTML = `
+    <span class="recent-lbl">Recent:</span>
+    ${list
+      .map(
+        (x) => `
+          <button type="button" class="recent-chip" data-rtype="${BV.esc(x.type)}" data-rtag="${BV.esc(x.tag)}">
+            <span>${x.type === "club" ? "🛡" : "👤"} ${BV.esc(x.name)}</span>
+            <small>${BV.esc(x.tag)}</small>
+          </button>
+        `
+      )
+      .join("")}
+  `;
+  bar.querySelectorAll(".recent-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const t = btn.dataset.rtype;
+      const tag = btn.dataset.rtag;
+      setLookupType(t);
+      document.getElementById("lookup-tag-input").value = tag;
+      runLookup(t, tag);
+    });
+  });
+}
+
+function renderRatingRing(score, grade) {
+  const r = 46;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.max(0.05, Math.min(1, score / 10));
+  const offset = circ * (1 - pct);
+  return `
+    <div class="rating-ring-wrap">
+      <svg class="rating-ring-svg" viewBox="0 0 112 112" aria-hidden="true">
+        <circle class="rating-ring-bg" cx="56" cy="56" r="${r}" />
+        <circle class="rating-ring-fg" cx="56" cy="56" r="${r}" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" />
+      </svg>
+      <div class="rating-ring-center">
+        <strong>${score.toFixed(1)}</strong>
+        <span>/ 10</span>
+      </div>
+    </div>
+    <div class="rating-grade">${BV.esc(grade)}</div>
+  `;
+}
 
 function setLookupType(type) {
   LOOKUP_STATE.type = type;
@@ -1873,11 +1960,215 @@ function renderCompareResult(p1, p2) {
 // ============================================================================
 // Render Player & Club Profiles
 // ============================================================================
+// ============================================================================
+// Dynamic Brawler Explorer (Search, Filter, Sort & Live Inspect Drawer)
+// ============================================================================
+function renderBrawlerExplorer(p) {
+  const all = p.brawlers || [];
+  const q = LOOKUP_STATE.brawlerSearch.trim().toUpperCase();
+
+  let list = all.filter((b) => {
+    if (q && !b.name.toUpperCase().includes(q)) return false;
+    if (LOOKUP_STATE.brawlerFilter === "lv11" && b.power < 11) return false;
+    if (LOOKUP_STATE.brawlerFilter === "1k" && b.trophies < 1000) return false;
+    if (LOOKUP_STATE.brawlerFilter === "near1k" && !(b.trophies >= 750 && b.trophies < 1000)) return false;
+    if (LOOKUP_STATE.brawlerFilter === "upgrade" && !(b.power === 9 || b.power === 10)) return false;
+    return true;
+  });
+
+  if (LOOKUP_STATE.brawlerSort === "power") {
+    list = [...list].sort((a, b) => b.power - a.power || b.trophies - a.trophies);
+  } else if (LOOKUP_STATE.brawlerSort === "highest") {
+    list = [...list].sort((a, b) => b.highest_trophies - a.highest_trophies);
+  } else if (LOOKUP_STATE.brawlerSort === "name") {
+    list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    list = [...list].sort((a, b) => b.trophies - a.trophies || b.power - a.power);
+  }
+
+  const lv11Cnt = all.filter((b) => b.power >= 11).length;
+  const k1Cnt = all.filter((b) => b.trophies >= 1000).length;
+  const near1kCnt = all.filter((b) => b.trophies >= 750 && b.trophies < 1000).length;
+  const upgCnt = all.filter((b) => b.power === 9 || b.power === 10).length;
+
+  let drawerHtml = "";
+  if (LOOKUP_STATE.selectedBrawler) {
+    const sb = all.find((x) => x.name === LOOKUP_STATE.selectedBrawler);
+    if (sb) {
+      const cost = sb.power < 11 ? calcCostTo11(sb.power) : { coins: 0, pp: 0 };
+      const spTxt = (sb.star_powers || []).join(", ") || "None owned";
+      const gdTxt = (sb.gadgets || []).join(", ") || "None owned";
+      const grTxt = (sb.gears || []).join(", ") || "None owned";
+      drawerHtml = `
+        <div class="brawler-inspect-drawer dyn-fade">
+          <div class="bid-head">
+            <div class="bid-ident">
+              <img src="${BV.resolvePortraitUrl(sb.portrait, sb.id)}" alt="${BV.esc(sb.name)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${sb.id}.png'" />
+              <div>
+                <h4 class="brawl-title" style="font-size:18px;">${BV.esc(sb.name)}</h4>
+                <span class="muted-tag">Level ${sb.power} • 🏆 ${sb.trophies.toLocaleString()} (Peak ${sb.highest_trophies.toLocaleString()})</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <a href="/counters/?brawler=${encodeURIComponent(sb.name)}" class="btn btn-blue btn-sm" style="text-decoration:none;">⚔ Counters</a>
+              <button type="button" id="close-brawler-drawer" class="btn btn-ghost btn-sm">✕</button>
+            </div>
+          </div>
+          <div class="bid-grid">
+            <div class="ma-box"><span>Star Powers</span><strong>${BV.esc(spTxt)}</strong></div>
+            <div class="ma-box"><span>Gadgets</span><strong>${BV.esc(gdTxt)}</strong></div>
+            <div class="ma-box"><span>Gears</span><strong>${BV.esc(grTxt)}</strong></div>
+            <div class="ma-box"><span>To Level 11</span><strong>${sb.power >= 11 ? "✓ Maxed" : `🪙 ${cost.coins.toLocaleString()} / ${cost.pp.toLocaleString()} PP`}</strong></div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  return `
+    <div class="dyn-fade">
+      <div class="explorer-toolbar">
+        <div class="filter-pills">
+          <button type="button" class="filter-pill ${LOOKUP_STATE.brawlerFilter === "all" ? "active" : ""}" data-bfilter="all">All (${all.length})</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.brawlerFilter === "lv11" ? "active" : ""}" data-bfilter="lv11">Lv 11 (${lv11Cnt})</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.brawlerFilter === "1k" ? "active" : ""}" data-bfilter="1k">1k+ (${k1Cnt})</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.brawlerFilter === "near1k" ? "active" : ""}" data-bfilter="near1k">750–999 (${near1kCnt})</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.brawlerFilter === "upgrade" ? "active" : ""}" data-bfilter="upgrade">Lv 9–10 (${upgCnt})</button>
+        </div>
+        <div class="explorer-controls">
+          <input type="search" id="brawler-exp-search" class="search-input" placeholder="Search brawler..." value="${BV.esc(LOOKUP_STATE.brawlerSearch)}" />
+          <select id="brawler-exp-sort" class="select-input">
+            <option value="trophies" ${LOOKUP_STATE.brawlerSort === "trophies" ? "selected" : ""}>Sort: Trophies ↓</option>
+            <option value="power" ${LOOKUP_STATE.brawlerSort === "power" ? "selected" : ""}>Sort: Power ↓</option>
+            <option value="highest" ${LOOKUP_STATE.brawlerSort === "highest" ? "selected" : ""}>Sort: Peak 🏆 ↓</option>
+            <option value="name" ${LOOKUP_STATE.brawlerSort === "name" ? "selected" : ""}>Sort: Name A–Z</option>
+          </select>
+        </div>
+      </div>
+      ${drawerHtml}
+      <div class="player-brawler-grid">
+        ${
+          list.length
+            ? list
+                .map(
+                  (b) => `
+                    <button type="button" class="pb-card ${b.power >= 11 ? "tile-lv11" : ""} ${LOOKUP_STATE.selectedBrawler === b.name ? "cp-tile-active" : ""}" data-inspect-b="${BV.esc(b.name)}">
+                      <span class="pb-power ${b.power >= 11 ? "lv11" : ""}">LV ${b.power}</span>
+                      <img src="${BV.resolvePortraitUrl(b.portrait, b.id)}" alt="${BV.esc(b.name)}" loading="lazy" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.id}.png'" />
+                      <div class="pb-name">${BV.esc(b.name)}</div>
+                      <div class="pb-trophies">🏆 ${b.trophies.toLocaleString()}</div>
+                    </button>
+                  `
+                )
+                .join("")
+            : `<div class="empty-card">No brawlers match this filter.</div>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+function renderDynamicPlayerWorkspace() {
+  const container = document.getElementById("player-sub-content");
+  const p = LOOKUP_STATE.lastPlayer;
+  const rating = LOOKUP_STATE.lastRating;
+  const verdict = LOOKUP_STATE.lastVerdict;
+  if (!container || !p || !rating) return;
+
+  if (LOOKUP_STATE.subTab === "overview") {
+    container.innerHTML = `
+      <div class="overview-stack dyn-fade">
+        ${renderVerdictCard("BRAWLVAULT JUDGE • 50,000 🏆 AVERAGE BENCHMARK", verdict)}
+        <section class="panel progress-panel" id="progress-tracker-panel">
+          ${renderProgressTrackerSection(LOOKUP_STATE.lastHistory, LOOKUP_STATE.historyMetric)}
+        </section>
+      </div>
+    `;
+    const bindProgress = () => {
+      const panel = document.getElementById("progress-tracker-panel");
+      if (!panel) return;
+      panel.querySelectorAll("[data-hmetric]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          LOOKUP_STATE.historyMetric = btn.dataset.hmetric;
+          panel.innerHTML = renderProgressTrackerSection(LOOKUP_STATE.lastHistory, LOOKUP_STATE.historyMetric);
+          bindProgress();
+        });
+      });
+    };
+    bindProgress();
+    return;
+  }
+
+  if (LOOKUP_STATE.subTab === "roadmap") {
+    container.innerHTML = `
+      <div class="overview-stack dyn-fade">
+        ${renderGoalRoadmap(p, rating)}
+        ${renderCoachingSection(
+          "HOW TO RAISE YOUR SCORE",
+          "Strict competitive benchmarks: 50k trophies = average (100k max), 18k 3v3 wins, 65 Lv 11s, 45 brawlers at 1k+.",
+          generatePlayerCoaching(p, rating)
+        )}
+      </div>
+    `;
+    return;
+  }
+
+  if (LOOKUP_STATE.subTab === "brawlers") {
+    container.innerHTML = renderBrawlerExplorer(p);
+    container.querySelectorAll("[data-bfilter]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        LOOKUP_STATE.brawlerFilter = btn.dataset.bfilter;
+        renderDynamicPlayerWorkspace();
+      });
+    });
+    const sInput = document.getElementById("brawler-exp-search");
+    if (sInput) {
+      sInput.addEventListener("input", (e) => {
+        LOOKUP_STATE.brawlerSearch = e.target.value;
+        renderDynamicPlayerWorkspace();
+        const fresh = document.getElementById("brawler-exp-search");
+        if (fresh) {
+          fresh.focus();
+          fresh.setSelectionRange(fresh.value.length, fresh.value.length);
+        }
+      });
+    }
+    const sortSel = document.getElementById("brawler-exp-sort");
+    if (sortSel) {
+      sortSel.addEventListener("change", (e) => {
+        LOOKUP_STATE.brawlerSort = e.target.value;
+        renderDynamicPlayerWorkspace();
+      });
+    }
+    container.querySelectorAll("[data-inspect-b]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nm = btn.dataset.inspectB;
+        LOOKUP_STATE.selectedBrawler = LOOKUP_STATE.selectedBrawler === nm ? null : nm;
+        renderDynamicPlayerWorkspace();
+      });
+    });
+    const closeDr = document.getElementById("close-brawler-drawer");
+    if (closeDr) {
+      closeDr.addEventListener("click", () => {
+        LOOKUP_STATE.selectedBrawler = null;
+        renderDynamicPlayerWorkspace();
+      });
+    }
+    return;
+  }
+
+  // Default: "matches"
+  renderPlayerSubTab();
+}
+
 function renderPlayerProfile(p) {
   LOOKUP_STATE.lastPlayer = p;
-  LOOKUP_STATE.subTab = "matches";
+  LOOKUP_STATE.subTab = "overview";
   LOOKUP_STATE.matchFilter = "all";
   LOOKUP_STATE.matchMode = "";
+  LOOKUP_STATE.brawlerSearch = "";
+  LOOKUP_STATE.brawlerFilter = "all";
+  LOOKUP_STATE.selectedBrawler = null;
 
   const rating = computeStrictPlayerRating(p);
   LOOKUP_STATE.lastRating = rating;
@@ -1886,8 +2177,14 @@ function renderPlayerProfile(p) {
 
   const bs = p.battle_stats || {};
   const enrichedMatches = (bs.recent_matches || []).map(enrichMatch);
+  LOOKUP_STATE.lastEnrichedMatches = enrichedMatches;
   const verdict = buildPlayerVerdict(p, rating, enrichedMatches);
-  const isSaved = BV.getSavedTag() === BV.normalizeTag(p.tag);
+  LOOKUP_STATE.lastVerdict = verdict;
+
+  saveRecentLookup("player", p.tag, p.name);
+
+  const savedTag = BV.getSavedTag();
+  const isSaved = savedTag === BV.normalizeTag(p.tag);
 
   const breakdownHtml = (rating.breakdown || [])
     .map((b) => {
@@ -1908,9 +2205,14 @@ function renderPlayerProfile(p) {
     ? `<button type="button" id="jump-club-btn" class="club-link-pill">🛡 ${BV.esc(p.club.name)} (${BV.esc(p.club.tag)}) →</button>`
     : `<span class="muted-tag">No Club</span>`;
 
+  const battleMeBtn =
+    savedTag && !isSaved
+      ? `<button type="button" id="battle-vs-me-btn" class="btn btn-blue btn-sm">⚔ Battle vs Me</button>`
+      : "";
+
   const resultEl = document.getElementById("lookup-result");
   resultEl.innerHTML = `
-    <div class="profile-hero">
+    <div class="profile-hero dyn-fade">
       <div class="profile-main">
         <div class="profile-top-row">
           <div>
@@ -1921,78 +2223,60 @@ function renderPlayerProfile(p) {
             </div>
           </div>
           <div class="profile-actions">
+            ${battleMeBtn}
             <button type="button" id="save-my-tag-btn" class="btn ${isSaved ? "btn-blue" : "btn-gold"} btn-sm">
-              ${isSaved ? "✓ Saved as My ID" : "★ Set as My ID"}
+              ${isSaved ? "✓ Saved ID" : "★ Save ID"}
             </button>
             <a href="/upgrade/" class="btn btn-ghost btn-sm">Upgrade Guide →</a>
           </div>
         </div>
 
         <div class="stats-grid">
-          <div class="stat-tile"><span>Trophies (50k Avg)</span><strong class="gold-text">🏆 ${p.trophies.toLocaleString()}</strong></div>
-          <div class="stat-tile"><span>vs 50k Game Avg</span><strong class="${verdict.diff50k >= 0 ? "green-text" : "red-text"}">${formatSignedTrophies(verdict.diff50k)}</strong></div>
-          <div class="stat-tile"><span>Highest Trophies</span><strong>${p.highest_trophies.toLocaleString()}</strong></div>
-          <div class="stat-tile"><span>3v3 Victories (${rating.share_3v3_pct}%)</span><strong>${p.victories_3v3.toLocaleString()}</strong></div>
-          <div class="stat-tile"><span>Recent Win Rate</span><strong class="${(bs.win_rate ?? 50) >= 55 ? "green-text" : "red-text"}">${bs.win_rate != null ? `${bs.win_rate}%` : "N/A"}</strong></div>
-          <div class="stat-tile"><span>W/L Ratio (Last ${bs.matches_analyzed || 0})</span><strong>${bs.wl_ratio != null ? `${bs.wl_ratio} (${bs.wins}W-${bs.losses}L)` : "N/A"}</strong></div>
-          <div class="stat-tile"><span>Star Player Rate</span><strong class="gold-text">${bs.star_player_rate != null ? `${bs.star_player_rate}%` : "N/A"}</strong></div>
-          <div class="stat-tile"><span>Avg Lobby 🏆</span><strong>${verdict.avgLobby != null ? `${verdict.avgLobby.toLocaleString()} 🏆` : "N/A"}</strong></div>
-          <div class="stat-tile"><span>Level 11 Brawlers</span><strong class="green-text">${p.power11_count} / ${p.brawlers_owned}</strong></div>
-          <div class="stat-tile"><span>1,000+ Trophy Brawlers</span><strong>${p.max_tier_brawlers}</strong></div>
+          <div class="stat-tile"><span>Trophies</span><strong class="gold-text">🏆 ${p.trophies.toLocaleString()}</strong></div>
+          <div class="stat-tile"><span>vs 50k Avg</span><strong class="${verdict.diff50k >= 0 ? "green-text" : "red-text"}">${formatSignedTrophies(verdict.diff50k)}</strong></div>
+          <div class="stat-tile"><span>Peak Trophies</span><strong>${p.highest_trophies.toLocaleString()}</strong></div>
+          <div class="stat-tile"><span>3v3 Wins (${rating.share_3v3_pct}%)</span><strong>${p.victories_3v3.toLocaleString()}</strong></div>
+          <div class="stat-tile"><span>Recent WR</span><strong class="${(bs.win_rate ?? 50) >= 55 ? "green-text" : "red-text"}">${bs.win_rate != null ? `${bs.win_rate}%` : "N/A"}</strong></div>
+          <div class="stat-tile"><span>Star Player</span><strong class="gold-text">${bs.star_player_rate != null ? `${bs.star_player_rate}%` : "N/A"}</strong></div>
+          <div class="stat-tile"><span>Level 11s</span><strong class="green-text">${p.power11_count} / ${p.brawlers_owned}</strong></div>
+          <div class="stat-tile"><span>1,000+ Brawlers</span><strong>${p.max_tier_brawlers}</strong></div>
         </div>
       </div>
 
       <div class="rating-card ${scoreColorClass(rating.score)}">
-        <div class="rating-label">STRICT RATING (50K AVG BENCHMARK)</div>
-        <div class="rating-score-big">
-          <span class="brawl-title">${rating.score.toFixed(1)}</span>
-          <small>/ 10</small>
-        </div>
-        <div class="rating-grade">${BV.esc(rating.grade)}</div>
+        <div class="rating-label">STRICT RATING (50K BENCHMARK)</div>
+        ${renderRatingRing(rating.score, rating.grade)}
         <div class="rating-breakdown">${breakdownHtml}</div>
       </div>
     </div>
 
-    ${renderVerdictCard("BRAWLVAULT JUDGE • 50,000 🏆 AVERAGE BENCHMARK", verdict)}
+    <!-- Dynamic Workspace Tabs -->
+    <nav class="lookup-dyn-tabs" aria-label="Player sections">
+      <button type="button" class="lookup-dyn-tab active" data-sub="overview">Overview &amp; Progress</button>
+      <button type="button" class="lookup-dyn-tab" data-sub="matches">Matches <span class="lookup-dyn-count">${enrichedMatches.length}</span></button>
+      <button type="button" class="lookup-dyn-tab" data-sub="roadmap">Goal Roadmap</button>
+      <button type="button" class="lookup-dyn-tab" data-sub="brawlers">Brawlers <span class="lookup-dyn-count">${p.brawlers_owned}</span></button>
+    </nav>
 
-    ${renderGoalRoadmap(p, rating)}
-
-    <section class="panel progress-panel" id="progress-tracker-panel">
-      ${renderProgressTrackerSection(history, LOOKUP_STATE.historyMetric)}
-    </section>
-
-    ${renderCoachingSection(
-      "HOW TO RAISE YOUR SCORE",
-      "Strict competitive benchmarks: 50k trophies = average (100k max), 18k 3v3 wins, 65 Lv 11s, 45 brawlers at 1k+.",
-      generatePlayerCoaching(p, rating)
-    )}
-
-    <div class="sub-tabs-bar">
-      <button type="button" class="sub-tab active" data-sub="matches">Recent Matches (${enrichedMatches.length})</button>
-      <button type="button" class="sub-tab" data-sub="brawlers">All Brawlers (${p.brawlers_owned})</button>
-    </div>
     <div id="player-sub-content"></div>
   `;
-
-  function bindProgressMetricTabs() {
-    const panel = document.getElementById("progress-tracker-panel");
-    if (!panel) return;
-    panel.querySelectorAll("[data-hmetric]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        LOOKUP_STATE.historyMetric = btn.dataset.hmetric;
-        panel.innerHTML = renderProgressTrackerSection(LOOKUP_STATE.lastHistory, LOOKUP_STATE.historyMetric);
-        bindProgressMetricTabs();
-      });
-    });
-  }
-  bindProgressMetricTabs();
 
   document.getElementById("save-my-tag-btn").addEventListener("click", (e) => {
     BV.setSavedTag(p.tag);
     BV.setCachedProfile(p);
-    e.currentTarget.textContent = "✓ Saved as My ID";
+    e.currentTarget.textContent = "✓ Saved ID";
     e.currentTarget.className = "btn btn-blue btn-sm";
   });
+
+  const battleBtn = document.getElementById("battle-vs-me-btn");
+  if (battleBtn && savedTag) {
+    battleBtn.addEventListener("click", () => {
+      setLookupType("compare");
+      document.getElementById("lookup-tag-input").value = savedTag;
+      document.getElementById("lookup-tag-input-2").value = p.tag;
+      runCompare(savedTag, p.tag);
+    });
+  }
 
   const clubBtn = document.getElementById("jump-club-btn");
   if (clubBtn && p.club) {
@@ -2003,21 +2287,178 @@ function renderPlayerProfile(p) {
     });
   }
 
-  document.querySelectorAll(".sub-tab").forEach((btn) => {
+  document.querySelectorAll(".lookup-dyn-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       LOOKUP_STATE.subTab = btn.dataset.sub;
-      document.querySelectorAll(".sub-tab").forEach((b) => b.classList.toggle("active", b === btn));
-      renderPlayerSubTab();
+      document.querySelectorAll(".lookup-dyn-tab").forEach((b) => b.classList.toggle("active", b === btn));
+      renderDynamicPlayerWorkspace();
     });
   });
 
-  renderPlayerSubTab();
+  renderDynamicPlayerWorkspace();
+}
+
+function renderDynamicClubWorkspace() {
+  const container = document.getElementById("club-sub-content");
+  const c = LOOKUP_STATE.lastClub;
+  const rating = LOOKUP_STATE.lastRating;
+  const verdict = LOOKUP_STATE.lastVerdict;
+  if (!container || !c || !rating || !verdict) return;
+
+  const totalCount = Math.max(1, c.member_count || (c.members || []).length);
+
+  if (LOOKUP_STATE.clubTab === "overview") {
+    const tierBarHtml = `
+      <div class="club-dist-wrap">
+        <div class="club-dist-bar">
+          ${verdict.buckets
+            .filter((b) => b.count > 0)
+            .map(
+              (b) =>
+                `<div class="club-dist-seg ${b.cls}" style="width:${(b.count / totalCount) * 100}%" title="${b.label}: ${b.count} members"></div>`
+            )
+            .join("")}
+        </div>
+        <div class="club-dist-legend">
+          ${verdict.buckets
+            .map((b) => `<span class="cdl-item ${b.cls}">${b.label}: <strong>${b.count}</strong></span>`)
+            .join("")}
+        </div>
+      </div>
+    `;
+    container.innerHTML = `
+      <div class="overview-stack dyn-fade">
+        ${renderVerdictCard("CLAN JUDGE • 50,000 🏆 AVERAGE BENCHMARK", verdict, tierBarHtml)}
+        ${renderCoachingSection(
+          "HOW TO RAISE YOUR CLAN SCORE",
+          "Strict recruiting, median vs average health, and trophy spread targets anchored to the 50k benchmark.",
+          generateClubCoaching(c, rating)
+        )}
+      </div>
+    `;
+    return;
+  }
+
+  // Dynamic Members Explorer
+  const all = c.members || [];
+  const q = LOOKUP_STATE.clubSearch.trim().toLowerCase();
+  let list = all.filter((m) => {
+    if (q && !m.name.toLowerCase().includes(q) && !m.tag.toLowerCase().includes(q)) return false;
+    if (LOOKUP_STATE.clubFilter === "80k" && m.trophies < 80000) return false;
+    if (LOOKUP_STATE.clubFilter === "50k" && m.trophies < 50000) return false;
+    if (LOOKUP_STATE.clubFilter === "under50" && m.trophies >= 50000) return false;
+    if (LOOKUP_STATE.clubFilter === "under30" && m.trophies >= 30000) return false;
+    if (LOOKUP_STATE.clubFilter === "leaders" && !["president", "vicePresident", "senior"].includes(m.role)) return false;
+    return true;
+  });
+
+  if (LOOKUP_STATE.clubSort === "trophies_asc") {
+    list = [...list].sort((a, b) => a.trophies - b.trophies);
+  } else if (LOOKUP_STATE.clubSort === "role") {
+    const order = { president: 0, vicePresident: 1, senior: 2, member: 3 };
+    list = [...list].sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9) || b.trophies - a.trophies);
+  } else {
+    list = [...list].sort((a, b) => b.trophies - a.trophies);
+  }
+
+  const membersHtml = list.length
+    ? list
+        .map((m, idx) => {
+          let mTag = `<span class="mj-pill mj-avg">50K TIER</span>`;
+          if (m.trophies >= 80000) mTag = `<span class="mj-pill mj-elite">ACE 80K+</span>`;
+          else if (m.trophies >= 60000) mTag = `<span class="mj-pill mj-good">ABOVE 50K</span>`;
+          else if (m.trophies < 30000) mTag = `<span class="mj-pill mj-low">UNDER 30K</span>`;
+          else if (m.trophies < 50000) mTag = `<span class="mj-pill mj-warn">BELOW 50K</span>`;
+          return `
+            <button type="button" class="club-member-row" data-tag="${BV.esc(m.tag)}">
+              <span class="member-rank">#${idx + 1}</span>
+              <div class="member-info">
+                <div class="member-name-row">
+                  <strong>${BV.esc(m.name)}</strong>
+                  ${mTag}
+                </div>
+                <span class="member-meta">${BV.esc(m.tag)} • ${BV.esc(m.role)}</span>
+              </div>
+              <span class="member-trophies">🏆 ${m.trophies.toLocaleString()}</span>
+            </button>
+          `;
+        })
+        .join("")
+    : `<div class="empty-card">No clan members match this filter.</div>`;
+
+  container.innerHTML = `
+    <div class="dyn-fade">
+      <div class="explorer-toolbar">
+        <div class="filter-pills">
+          <button type="button" class="filter-pill ${LOOKUP_STATE.clubFilter === "all" ? "active" : ""}" data-cfilter="all">All (${all.length})</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.clubFilter === "80k" ? "active" : ""}" data-cfilter="80k">80k+</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.clubFilter === "50k" ? "active" : ""}" data-cfilter="50k">50k+</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.clubFilter === "under50" ? "active" : ""}" data-cfilter="under50">&lt;50k</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.clubFilter === "under30" ? "active" : ""}" data-cfilter="under30">&lt;30k</button>
+          <button type="button" class="filter-pill ${LOOKUP_STATE.clubFilter === "leaders" ? "active" : ""}" data-cfilter="leaders">Leaders</button>
+        </div>
+        <div class="explorer-controls">
+          <input type="search" id="club-exp-search" class="search-input" placeholder="Search member..." value="${BV.esc(LOOKUP_STATE.clubSearch)}" />
+          <select id="club-exp-sort" class="select-input">
+            <option value="trophies_desc" ${LOOKUP_STATE.clubSort === "trophies_desc" ? "selected" : ""}>Trophies ↓</option>
+            <option value="trophies_asc" ${LOOKUP_STATE.clubSort === "trophies_asc" ? "selected" : ""}>Trophies ↑</option>
+            <option value="role" ${LOOKUP_STATE.clubSort === "role" ? "selected" : ""}>Role</option>
+          </select>
+        </div>
+      </div>
+      <div class="club-member-list">${membersHtml}</div>
+    </div>
+  `;
+
+  container.querySelectorAll("[data-cfilter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      LOOKUP_STATE.clubFilter = btn.dataset.cfilter;
+      renderDynamicClubWorkspace();
+    });
+  });
+  const sEl = document.getElementById("club-exp-search");
+  if (sEl) {
+    sEl.addEventListener("input", (e) => {
+      LOOKUP_STATE.clubSearch = e.target.value;
+      renderDynamicClubWorkspace();
+      const fresh = document.getElementById("club-exp-search");
+      if (fresh) {
+        fresh.focus();
+        fresh.setSelectionRange(fresh.value.length, fresh.value.length);
+      }
+    });
+  }
+  const sortEl = document.getElementById("club-exp-sort");
+  if (sortEl) {
+    sortEl.addEventListener("change", (e) => {
+      LOOKUP_STATE.clubSort = e.target.value;
+      renderDynamicClubWorkspace();
+    });
+  }
+  container.querySelectorAll(".club-member-row").forEach((row) => {
+    row.addEventListener("click", () => {
+      const mTag = row.dataset.tag;
+      setLookupType("player");
+      document.getElementById("lookup-tag-input").value = mTag;
+      runLookup("player", mTag);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
 }
 
 function renderClubProfile(c) {
+  LOOKUP_STATE.lastClub = c;
+  LOOKUP_STATE.clubTab = "overview";
+  LOOKUP_STATE.clubSearch = "";
+  LOOKUP_STATE.clubFilter = "all";
+  LOOKUP_STATE.clubSort = "trophies_desc";
+
   const rating = computeStrictClubRating(c);
   const verdict = buildClubVerdict(c, rating);
-  const totalCount = Math.max(1, c.member_count || (c.members || []).length);
+  LOOKUP_STATE.lastRating = rating;
+  LOOKUP_STATE.lastVerdict = verdict;
+
+  saveRecentLookup("club", c.tag, c.name);
 
   const breakdownHtml = (rating.breakdown || [])
     .map((b) => {
@@ -2034,51 +2475,9 @@ function renderClubProfile(c) {
     })
     .join("");
 
-  const tierBarHtml = `
-    <div class="club-dist-wrap">
-      <div class="club-dist-bar">
-        ${verdict.buckets
-          .filter((b) => b.count > 0)
-          .map(
-            (b) =>
-              `<div class="club-dist-seg ${b.cls}" style="width:${(b.count / totalCount) * 100}%" title="${b.label}: ${b.count} members"></div>`
-          )
-          .join("")}
-      </div>
-      <div class="club-dist-legend">
-        ${verdict.buckets
-          .map((b) => `<span class="cdl-item ${b.cls}">${b.label}: <strong>${b.count}</strong></span>`)
-          .join("")}
-      </div>
-    </div>
-  `;
-
-  const membersHtml = (c.members || [])
-    .map((m, idx) => {
-      let mTag = `<span class="mj-pill mj-avg">50K TIER</span>`;
-      if (m.trophies >= 80000) mTag = `<span class="mj-pill mj-elite">ACE 80K+</span>`;
-      else if (m.trophies >= 60000) mTag = `<span class="mj-pill mj-good">ABOVE 50K</span>`;
-      else if (m.trophies < 30000) mTag = `<span class="mj-pill mj-low">UNDER 30K</span>`;
-      else if (m.trophies < 50000) mTag = `<span class="mj-pill mj-warn">BELOW 50K</span>`;
-      return `
-        <button type="button" class="club-member-row" data-tag="${BV.esc(m.tag)}">
-          <span class="member-rank">#${idx + 1}</span>
-          <div class="member-info">
-            <div class="member-name-row">
-              <strong>${BV.esc(m.name)}</strong>
-              ${mTag}
-            </div>
-            <span class="member-meta">${BV.esc(m.tag)} • ${BV.esc(m.role)}</span>
-          </div>
-          <span class="member-trophies">🏆 ${m.trophies.toLocaleString()}</span>
-        </button>
-      `;
-    })
-    .join("");
-
   const resultEl = document.getElementById("lookup-result");
   resultEl.innerHTML = `
-    <div class="profile-hero">
+    <div class="profile-hero dyn-fade">
       <div class="profile-main">
         <div class="profile-top-row">
           <div>
@@ -2093,49 +2492,37 @@ function renderClubProfile(c) {
         <div class="stats-grid">
           <div class="stat-tile"><span>Total Trophies</span><strong class="gold-text">🏆 ${c.trophies.toLocaleString()}</strong></div>
           <div class="stat-tile"><span>Avg Member 🏆</span><strong>${c.avg_trophies.toLocaleString()}</strong></div>
-          <div class="stat-tile"><span>vs 50k Game Avg</span><strong class="${verdict.diff50k >= 0 ? "green-text" : "red-text"}">${formatSignedTrophies(verdict.diff50k)}</strong></div>
-          <div class="stat-tile"><span>Median Member 🏆</span><strong>${verdict.median.toLocaleString()}</strong></div>
+          <div class="stat-tile"><span>vs 50k Avg</span><strong class="${verdict.diff50k >= 0 ? "green-text" : "red-text"}">${formatSignedTrophies(verdict.diff50k)}</strong></div>
+          <div class="stat-tile"><span>Median 🏆</span><strong>${verdict.median.toLocaleString()}</strong></div>
           <div class="stat-tile"><span>Members</span><strong class="green-text">${c.member_count} / 30</strong></div>
-          <div class="stat-tile"><span>Mega Pig Cap</span><strong>${c.member_count * 15} / 450 tickets</strong></div>
-          <div class="stat-tile"><span>Top 5 vs Bot 5</span><strong>${verdict.top5Avg.toLocaleString()} / ${verdict.bot5Avg.toLocaleString()}</strong></div>
-          <div class="stat-tile"><span>Required Trophies</span><strong>${c.required_trophies.toLocaleString()}</strong></div>
+          <div class="stat-tile"><span>Mega Pig Cap</span><strong>${c.member_count * 15} / 450</strong></div>
         </div>
       </div>
 
       <div class="rating-card ${scoreColorClass(rating.score)}">
         <div class="rating-label">STRICT CLAN RATING (50K AVG)</div>
-        <div class="rating-score-big">
-          <span class="brawl-title">${rating.score.toFixed(1)}</span>
-          <small>/ 10</small>
-        </div>
-        <div class="rating-grade">${BV.esc(rating.grade)}</div>
+        ${renderRatingRing(rating.score, rating.grade)}
         <div class="rating-breakdown">${breakdownHtml}</div>
       </div>
     </div>
 
-    ${renderVerdictCard("CLAN JUDGE • 50,000 🏆 AVERAGE BENCHMARK", verdict, tierBarHtml)}
+    <nav class="lookup-dyn-tabs" aria-label="Clan sections">
+      <button type="button" class="lookup-dyn-tab active" data-ctab="overview">Overview &amp; Recruiting</button>
+      <button type="button" class="lookup-dyn-tab" data-ctab="members">Members <span class="lookup-dyn-count">${c.member_count} / 30</span></button>
+    </nav>
 
-    ${renderCoachingSection(
-      "HOW TO RAISE YOUR CLAN SCORE",
-      "Strict recruiting, median vs average health, and trophy spread targets anchored to the 50k benchmark.",
-      generateClubCoaching(c, rating)
-    )}
-
-    <div class="panel">
-      <div class="section-bar-title">CLAN MEMBERS (TAP ANY MEMBER TO INSPECT &amp; JUDGE)</div>
-      <div class="club-member-list">${membersHtml}</div>
-    </div>
+    <div id="club-sub-content"></div>
   `;
 
-  document.querySelectorAll(".club-member-row").forEach((row) => {
-    row.addEventListener("click", () => {
-      const mTag = row.dataset.tag;
-      setLookupType("player");
-      document.getElementById("lookup-tag-input").value = mTag;
-      runLookup("player", mTag);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+  document.querySelectorAll("[data-ctab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      LOOKUP_STATE.clubTab = btn.dataset.ctab;
+      document.querySelectorAll("[data-ctab]").forEach((b) => b.classList.toggle("active", b === btn));
+      renderDynamicClubWorkspace();
     });
   });
+
+  renderDynamicClubWorkspace();
 }
 
 async function runLookup(type, rawTag) {
@@ -2201,6 +2588,7 @@ async function runCompare(rawTag1, rawTag2) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  renderRecentSearches();
   document.querySelectorAll(".lookup-type-btn").forEach((btn) => {
     btn.addEventListener("click", () => setLookupType(btn.dataset.type));
   });
