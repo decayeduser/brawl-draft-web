@@ -2,7 +2,7 @@
 // BrawlVault Shared API & Session Utilities
 // ============================================================================
 window.BV = (() => {
-  const API_BASE_URL = "https://dull.tailed6f04.ts.net";
+  const API_BASE_URL = "https://dull-1.tailed6f04.ts.net";
   const API_KEY = "JmRP^Q!(uJ@,3Vmv]#~%EJSw--FzpC";
   const CLEAN_BASE_URL = API_BASE_URL.trim().replace(/\/+$/, "");
 
