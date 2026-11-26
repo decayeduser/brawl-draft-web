@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#09090b" />
+  <title>AI Coach • BrawlVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css?v=23" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Site Navigation -->
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="/home/" class="nav-brand">
+        <span class="nav-star" aria-hidden="true">★</span>
+        <span class="brawl-title nav-logo">BRAWLVAULT</span>
+      </a>
+      <div class="nav-links">
+        <a href="/home/" class="nav-link">Home</a>
+        <a href="/drafting/" class="nav-link">Drafting</a>
+        <a href="/upgrade/" class="nav-link">Upgrade Guide</a>
+        <a href="/tierlist/" class="nav-link">Tier List</a>
+        <a href="/counters/" class="nav-link">Counter Picker</a>
+        <a href="/coach/" class="nav-link active" aria-current="page">AI Coach</a>
+        <a href="/guides/" class="nav-link">Match Guides</a>
+        <a href="/lookup/" class="nav-link">Player/Clan Lookup</a>
+      </div>
+    </nav>
+
+    <!-- Page Header + Tag Loader -->
+    <header class="page-header-card">
+      <div>
+        <div class="verdict-eyebrow">✦ POWERED BY GEMINI AI + LIVE BRAWLVAULT META</div>
+        <h1 class="brawl-title page-title">AI BRAWL COACH</h1>
+        <p class="page-sub">
+          Get honest, personalized coaching for any Player or Clan — anchored to the 50,000 🏆 average benchmark, your recent matches, your brawler levels, and live S-tier meta.
+        </p>
+      </div>
+
+      <div class="lookup-search-stack">
+        <div class="lookup-type-tabs">
+          <button type="button" class="lookup-type-btn active" data-ctype="player">👤 Player Coach</button>
+          <button type="button" class="lookup-type-btn" data-ctype="club">🛡 Clan Coach</button>
+        </div>
+        <form id="coach-load-form" class="tag-input-row">
+          <input
+            type="text"
+            id="coach-tag-input"
+            class="search-input tag-field"
+            placeholder="Enter Player Tag (e.g. #2PP)"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+          />
+          <button type="submit" id="coach-load-btn" class="btn btn-gold">Load</button>
+        </form>
+      </div>
+    </header>
+
+    <!-- Main Coach Workspace -->
+    <section id="coach-workspace" class="overview-stack">
+      <div class="empty-card">
+        Enter a Player Tag or Clan Tag above (or connect your ID on Home) to start your live AI coaching session.
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <p>
+        This material is unofficial and is not endorsed by Supercell. For more information see Supercell's Fan Content Policy:
+        <a href="https://supercell.com/en/fan-content-policy/" target="_blank" rel="noopener noreferrer">www.supercell.com/fan-content-policy</a>.
+      </p>
+    </footer>
+  </div>
+
+  <script src="/shared.js?v=23"></script>
+  <script src="/coach.js?v=23"></script>
+</body>
+</html>
