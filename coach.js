@@ -11,8 +11,201 @@ const COACH_STATE = {
   profile: null,
   upgradeData: null,
   messages: [],
+  activeChatId: null,
   usage: null,
 };
+
+// ==================== PERSISTENT AI CHAT HISTORY ====================
+function getChatStorageKey() {
+  const uid = BV.getAuthUser()?.id || "anon";
+  return `bv_coach_chats_v1_${uid}`;
+}
+
+function getSeenTargetKey(type, tag) {
+  const uid = BV.getAuthUser()?.id || "anon";
+  return `bv_coach_seen_v1_${uid}_${type}_${BV.normalizeTag(tag)}`;
+}
+
+function hasEverChattedTarget(type, tag) {
+  try {
+    return localStorage.getItem(getSeenTargetKey(type, tag)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markChattedTarget(type, tag) {
+  try {
+    localStorage.setItem(getSeenTargetKey(type, tag), "1");
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function loadAllChats() {
+  try {
+    const raw = localStorage.getItem(getChatStorageKey());
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllChats(chats) {
+  try {
+    localStorage.setItem(getChatStorageKey(), JSON.stringify((chats || []).slice(0, 25)));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function getChatsForTarget(type, tag) {
+  const norm = BV.normalizeTag(tag);
+  return loadAllChats()
+    .filter((c) => c.type === type && c.tag === norm && Array.isArray(c.messages) && c.messages.length > 0)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+function persistActiveChat(questionHint = "") {
+  if (!COACH_STATE.profile) return;
+  const cleanMsgs = COACH_STATE.messages
+    .filter((m) => !m.loading && (m.text || m.error))
+    .slice(0, 20)
+    .map((m) => ({
+      title: m.title,
+      text: m.text || "",
+      error: m.error || "",
+      ts: m.ts || Date.now(),
+    }));
+  if (!cleanMsgs.length) return;
+
+  const chats = loadAllChats();
+  const now = Date.now();
+  const normTag = BV.normalizeTag(COACH_STATE.profile.tag);
+  markChattedTarget(COACH_STATE.type, normTag);
+
+  let chat = COACH_STATE.activeChatId ? chats.find((c) => c.id === COACH_STATE.activeChatId) : null;
+  if (!chat) {
+    const rawTitle = (questionHint || "").trim() || "Full Breakdown";
+    const shortTitle = rawTitle.length > 34 ? `${rawTitle.slice(0, 34)}…` : rawTitle;
+    chat = {
+      id: `chat_${now}_${Math.random().toString(36).slice(2, 6)}`,
+      type: COACH_STATE.type,
+      tag: normTag,
+      name: COACH_STATE.profile.name || normTag,
+      title: shortTitle,
+      createdAt: now,
+      updatedAt: now,
+      messages: cleanMsgs,
+    };
+    chats.unshift(chat);
+    COACH_STATE.activeChatId = chat.id;
+  } else {
+    chat.messages = cleanMsgs;
+    chat.updatedAt = now;
+    chat.name = COACH_STATE.profile.name || chat.name;
+  }
+
+  chats.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  saveAllChats(chats);
+  renderChatHistoryBar();
+}
+
+function formatRelTime(ts) {
+  if (!ts) return "";
+  const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (diffSec < 60) return "just now";
+  const mins = Math.floor(diffSec / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function startNewChat() {
+  COACH_STATE.activeChatId = null;
+  COACH_STATE.messages = [];
+  const input = document.getElementById("coach-question-input");
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+  const badge = document.getElementById("coach-status-badge");
+  if (badge) badge.textContent = "NEW CHAT";
+  renderChatHistoryBar();
+  renderCoachFeed();
+}
+
+function openChatSession(chatId) {
+  const chats = loadAllChats();
+  const found = chats.find((c) => c.id === chatId);
+  if (!found) return;
+  COACH_STATE.activeChatId = found.id;
+  COACH_STATE.messages = (found.messages || []).map((m) => ({ ...m, loading: false }));
+  const badge = document.getElementById("coach-status-badge");
+  if (badge) badge.textContent = "HISTORY";
+  renderChatHistoryBar();
+  renderCoachFeed();
+}
+
+function deleteChatSession(chatId) {
+  const chats = loadAllChats().filter((c) => c.id !== chatId);
+  saveAllChats(chats);
+  if (COACH_STATE.activeChatId === chatId) {
+    const remaining = COACH_STATE.profile ? getChatsForTarget(COACH_STATE.type, COACH_STATE.profile.tag) : [];
+    if (remaining.length) {
+      openChatSession(remaining[0].id);
+    } else {
+      startNewChat();
+    }
+  } else {
+    renderChatHistoryBar();
+  }
+}
+
+function renderChatHistoryBar() {
+  const bar = document.getElementById("coach-history-bar");
+  if (!bar || !COACH_STATE.profile) return;
+  const chats = getChatsForTarget(COACH_STATE.type, COACH_STATE.profile.tag);
+  if (!chats.length) {
+    bar.innerHTML = "";
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+  bar.innerHTML = `
+    <span class="coach-history-lbl">History:</span>
+    <div class="coach-history-list">
+      ${chats
+        .slice(0, 8)
+        .map((c) => {
+          const active = c.id === COACH_STATE.activeChatId;
+          return `
+            <div class="coach-history-chip ${active ? "active" : ""}">
+              <button type="button" class="coach-history-open" data-chat-id="${BV.esc(c.id)}" title="${BV.esc(c.title)}">
+                <span class="coach-h-title">${BV.esc(c.title)}</span>
+                <span class="coach-h-meta">${c.messages.length} • ${BV.esc(formatRelTime(c.updatedAt))}</span>
+              </button>
+              <button type="button" class="coach-history-del" data-del-chat="${BV.esc(c.id)}" aria-label="Delete chat" title="Delete chat">×</button>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+
+  bar.querySelectorAll(".coach-history-open").forEach((btn) => {
+    btn.addEventListener("click", () => openChatSession(btn.dataset.chatId));
+  });
+  bar.querySelectorAll(".coach-history-del").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteChatSession(btn.dataset.delChat);
+    });
+  });
+}
 
 function updateCoachQuotaBadge() {
   const el = document.getElementById("coach-quota-badge");
@@ -548,10 +741,13 @@ function renderCoachTabContent() {
           <h3 class="brawl-title coaching-heading">Ask About ${BV.esc(p.name)}</h3>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button type="button" id="coach-new-chat-btn" class="btn btn-ghost btn-sm">+ New Chat</button>
           <span id="coach-quota-badge" class="stat-chip hidden"></span>
           <span id="coach-status-badge" class="stat-chip">READY</span>
         </div>
       </div>
+
+      <div id="coach-history-bar" class="coach-history-bar hidden"></div>
 
       <div class="ai-coach-prompts">
         ${prompts
@@ -575,18 +771,22 @@ function renderCoachTabContent() {
     </section>
   `;
 
+  document.getElementById("coach-new-chat-btn").addEventListener("click", startNewChat);
   document.getElementById("coach-ask-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    askAiCoach(document.getElementById("coach-question-input").value.trim());
+    const input = document.getElementById("coach-question-input");
+    const q = input.value.trim();
+    input.value = "";
+    askAiCoach(q);
   });
   document.querySelectorAll(".coach-prompt-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const q = btn.dataset.q || "";
-      document.getElementById("coach-question-input").value = q;
       askAiCoach(q);
     });
   });
 
+  renderChatHistoryBar();
   renderCoachFeed();
   updateCoachQuotaBadge();
   if (!COACH_STATE.usage) refreshCoachUsage();
@@ -666,14 +866,17 @@ function renderCoachFeed() {
   const feed = document.getElementById("coach-feed");
   if (!feed) return;
   if (!COACH_STATE.messages.length) {
-    feed.innerHTML = `<div class="ai-coach-output"><div class="muted-tag">Pick a quick prompt above or ask any question to start coaching.</div></div>`;
+    feed.innerHTML = `<div class="ai-coach-output"><div class="muted-tag">New chat — pick a quick prompt above or ask any question below.</div></div>`;
     return;
   }
   feed.innerHTML = COACH_STATE.messages
     .map(
       (msg) => `
         <div class="ai-coach-output dyn-fade">
-          <div class="verdict-eyebrow" style="margin-bottom:6px;">${BV.esc(msg.title)}</div>
+          <div class="coach-msg-head">
+            <div class="verdict-eyebrow">${BV.esc(msg.title)}</div>
+            ${msg.ts ? `<span class="coach-msg-time">${BV.esc(formatRelTime(msg.ts))}</span>` : ""}
+          </div>
           ${
             msg.loading
               ? `<div class="muted-tag">Analyzing live stats &amp; meta with Gemini AI...</div>`
@@ -697,9 +900,10 @@ async function askAiCoach(question = "") {
     loading: true,
     text: "",
     error: "",
+    ts: Date.now(),
   };
   COACH_STATE.messages.unshift(entry);
-  COACH_STATE.messages = COACH_STATE.messages.slice(0, 6);
+  COACH_STATE.messages = COACH_STATE.messages.slice(0, 20);
   renderCoachFeed();
 
   if (badge) badge.textContent = "THINKING...";
@@ -722,6 +926,7 @@ async function askAiCoach(question = "") {
     if (res.ai_enabled && res.response) {
       entry.text = res.response;
       if (badge) badge.textContent = "AI LIVE";
+      persistActiveChat(question || "Full Breakdown");
     } else {
       entry.error = res.message || "AI Coach could not generate a response right now.";
       if (badge) badge.textContent = "UNAVAILABLE";
@@ -771,9 +976,22 @@ async function loadCoachTarget(type, rawTag) {
     COACH_STATE.subTab = urlTab && ["chat", "roadmap", "plan", "upgrade"].includes(urlTab) ? urlTab : "chat";
     COACH_STATE.profile = data;
     COACH_STATE.upgradeData = null;
-    COACH_STATE.messages = [];
+
+    const savedChats = getChatsForTarget(type, norm);
+    const isFirstTime = savedChats.length === 0 && !hasEverChattedTarget(type, norm);
+    if (savedChats.length > 0) {
+      COACH_STATE.activeChatId = savedChats[0].id;
+      COACH_STATE.messages = savedChats[0].messages.map((m) => ({ ...m, loading: false }));
+    } else {
+      COACH_STATE.activeChatId = null;
+      COACH_STATE.messages = [];
+    }
+
     renderCoachWorkspace();
-    if (COACH_STATE.subTab === "chat") askAiCoach("");
+    if (isFirstTime && COACH_STATE.subTab === "chat") {
+      markChattedTarget(type, norm);
+      askAiCoach("");
+    }
   } catch (err) {
     ws.innerHTML = `<div class="empty-card error-card">${BV.esc(err.message || "Could not load tag.")}</div>`;
   } finally {
