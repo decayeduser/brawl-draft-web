@@ -2392,7 +2392,7 @@ function renderPlayerProfile(p) {
           <div class="profile-actions">
             ${battleMeBtn}
             <button type="button" id="download-card-btn" class="btn btn-ghost btn-sm" title="Download PNG Profile Card for Discord/TikTok">⬇ Card PNG</button>
-            <a href="/coach/?player=${encodeURIComponent(p.tag)}" class="btn btn-gold btn-sm" style="text-decoration:none;">✦ AI Coach &amp; Roadmap →</a>
+            <a href="/training/?player=${encodeURIComponent(p.tag)}" class="btn btn-gold btn-sm" style="text-decoration:none;">✦ Personal Training &amp; AI Coach →</a>
             <button type="button" id="save-my-tag-btn" class="btn ${isSaved ? "btn-blue" : "btn-ghost"} btn-sm">
               ${isSaved ? "✓ Saved ID" : "★ Save ID"}
             </button>

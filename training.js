@@ -5,12 +5,13 @@
 const TRAINING_STATS_KEY = "bv_training_draft_quiz_v1";
 
 const TR_STATE = {
-  drill: "draft-quiz",
+  drill: "ai-coach",
   mode: "all",
   question: null,
   answered: false,
   selectedName: null,
   loading: false,
+  quizInitialized: false,
   stats: loadTrainingStats(),
   recentAttempts: [],
   weakModes: [],
@@ -369,17 +370,43 @@ function bindModePills() {
   });
 }
 
+function setActiveTrainingDrill(drillName) {
+  TR_STATE.drill = drillName;
+  document.querySelectorAll("[data-drill]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.drill === drillName);
+  });
+  const coachPanel = document.getElementById("training-coach-panel");
+  const quizPanel = document.getElementById("training-workspace");
+  if (drillName === "ai-coach") {
+    coachPanel?.classList.remove("hidden");
+    quizPanel?.classList.add("hidden");
+  } else {
+    coachPanel?.classList.add("hidden");
+    quizPanel?.classList.remove("hidden");
+    if (drillName === "draft-quiz" && !TR_STATE.quizInitialized) {
+      TR_STATE.quizInitialized = true;
+      loadNextDraftQuestion();
+    } else {
+      renderTrainingWorkspace();
+    }
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   updateScoreHeader();
   document.querySelectorAll("[data-drill]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      TR_STATE.drill = btn.dataset.drill;
-      document.querySelectorAll("[data-drill]").forEach((b) => b.classList.toggle("active", b === btn));
-      renderTrainingWorkspace();
-    });
+    btn.addEventListener("click", () => setActiveTrainingDrill(btn.dataset.drill));
   });
+
+  const params = new URLSearchParams(window.location.search);
+  const qTab = (params.get("tab") || "").toLowerCase();
+  if (qTab === "quiz" || qTab === "draft-quiz") {
+    setActiveTrainingDrill("draft-quiz");
+  } else {
+    setActiveTrainingDrill("ai-coach");
+  }
+
   await BV.authReady;
   syncTrainingStatsFromServer();
   BV.onAuthChange(() => syncTrainingStatsFromServer());
-  loadNextDraftQuestion();
 });

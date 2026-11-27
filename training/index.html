@@ -8,18 +8,18 @@
   <!-- BrawlVault SEO & Social Previews -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="canonical" href="https://brawlvault.online/training/" />
-  <meta name="description" content="1-on-1 Brawl Stars Ranked training ground: test your drafting IQ with real pro 6th-pick quizzes filtered for genuine meta picks." />
+  <meta name="description" content="1-on-1 Brawl Stars training ground: Vault AI Coach, Goal Roadmap, Level 11 Upgrade Guide, Cheap Power Spikes, and Pro 6th-Pick Draft Quiz." />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="BrawlVault" />
   <meta property="og:url" content="https://brawlvault.online/training/" />
   <meta property="og:title" content="Personal Training • BrawlVault" />
-  <meta property="og:description" content="1-on-1 Brawl Stars Ranked training ground: test your drafting IQ with real pro 6th-pick quizzes filtered for genuine meta picks." />
+  <meta property="og:description" content="1-on-1 Brawl Stars training ground: Vault AI Coach, Goal Roadmap, Level 11 Upgrade Guide, Cheap Power Spikes, and Pro 6th-Pick Draft Quiz." />
   <meta property="og:image" content="https://brawlvault.online/og-card.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Personal Training • BrawlVault" />
-  <meta name="twitter:description" content="1-on-1 Brawl Stars Ranked training ground: test your drafting IQ with real pro 6th-pick quizzes filtered for genuine meta picks." />
+  <meta name="twitter:description" content="1-on-1 Brawl Stars training ground: Vault AI Coach, Goal Roadmap, Level 11 Upgrade Guide, Cheap Power Spikes, and Pro 6th-Pick Draft Quiz." />
   <meta name="twitter:image" content="https://brawlvault.online/og-card.png" />
   <!-- /BrawlVault SEO -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,8 +40,7 @@
         <a href="/drafting/" class="nav-link">Drafting</a>
         <a href="/tierlist/" class="nav-link">Tier List</a>
         <a href="/counters/" class="nav-link">Counter Picker</a>
-        <a href="/coach/" class="nav-link">AI Coach</a>
-        <a href="/training/" class="nav-link active">Personal Training</a>
+        <a href="/training/" class="nav-link active" aria-current="page">Personal Training</a>
         <a href="/guides/" class="nav-link">Match Guides</a>
         <a href="/lookup/" class="nav-link">Player/Clan Lookup</a>
       </div>
@@ -50,27 +49,62 @@
     <!-- Header -->
     <section class="page-header-card">
       <div>
-        <div class="verdict-eyebrow">🎯 1-ON-1 RANKED TRAINING GROUND</div>
+        <div class="verdict-eyebrow">🎯 1-ON-1 RANKED TRAINING GROUND • POWERED BY VAULT AI</div>
         <h1 class="brawl-title page-title">PERSONAL TRAINING</h1>
         <p class="page-sub">
-          Sharpen your Ranked drafting IQ on real pro matches — troll &amp; off-meta picks are automatically filtered out.
+          Your all-in-one 1-on-1 improvement hub: Vault AI Coach, Goal Roadmap, Level 11 Upgrade Guide, and Pro 6th-Pick Draft Quiz.
         </p>
       </div>
       <div class="training-score-strip">
-        <div class="stat-tile"><span>Streak</span><strong id="tr-streak" class="gold-text">0</strong></div>
-        <div class="stat-tile"><span>Best</span><strong id="tr-best" class="green-text">0</strong></div>
+        <div class="stat-tile"><span>Quiz Streak</span><strong id="tr-streak" class="gold-text">0</strong></div>
+        <div class="stat-tile"><span>Best Streak</span><strong id="tr-best" class="green-text">0</strong></div>
         <div class="stat-tile"><span>Accuracy</span><strong id="tr-acc">--%</strong></div>
       </div>
     </section>
 
-    <!-- Expandable Training Drills Bar -->
-    <nav class="lookup-dyn-tabs" aria-label="Training drills">
-      <button type="button" class="lookup-dyn-tab active" data-drill="draft-quiz">🎯 Pro 6th-Pick Quiz</button>
+    <!-- Main Personal Training Mode Switcher -->
+    <nav class="lookup-dyn-tabs" aria-label="Personal Training sections">
+      <button type="button" class="lookup-dyn-tab active" data-drill="ai-coach">✦ Vault AI Coach &amp; Upgrades</button>
+      <button type="button" class="lookup-dyn-tab" data-drill="draft-quiz">🎯 Pro 6th-Pick Quiz</button>
       <button type="button" class="lookup-dyn-tab" data-drill="coming-soon">⚡ More 1-on-1 Drills (Soon)</button>
     </nav>
 
-    <!-- Drill Workspace -->
-    <section id="training-workspace" class="overview-stack">
+    <!-- Section 1: Full Vault AI Coach Hub -->
+    <div id="training-coach-panel" class="overview-stack">
+      <section class="panel" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+        <div>
+          <div class="verdict-eyebrow">✦ PERSONALIZED ACCOUNT &amp; CLAN COACHING</div>
+          <h2 class="brawl-title coaching-heading" style="font-size:19px;">Load Any Player or Clan Tag</h2>
+        </div>
+        <div class="lookup-search-stack">
+          <div class="lookup-type-tabs">
+            <button type="button" class="lookup-type-btn active" data-ctype="player">👤 Player Coach</button>
+            <button type="button" class="lookup-type-btn" data-ctype="club">🛡 Clan Coach</button>
+          </div>
+          <form id="coach-load-form" class="tag-input-row">
+            <input
+              type="text"
+              id="coach-tag-input"
+              class="search-input tag-field"
+              placeholder="Enter Player Tag (e.g. #2PP)"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+            />
+            <button type="submit" id="coach-load-btn" class="btn btn-gold">Load</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="coach-workspace" class="overview-stack">
+        <div class="empty-card">
+          Enter a Player Tag or Clan Tag above (or connect your ID) to start your live Vault AI coaching session.
+        </div>
+      </section>
+    </div>
+
+    <!-- Section 2: 1-on-1 Pro Draft Quiz & Future Drills -->
+    <section id="training-workspace" class="overview-stack hidden">
       <div class="empty-card">Loading your first verified pro Ranked draft...</div>
     </section>
 
@@ -83,7 +117,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/shared.js?v=30"></script>
-  <script src="/training.js?v=2"></script>
+  <script src="/shared.js?v=31"></script>
+  <script src="/coach.js?v=36"></script>
+  <script src="/training.js?v=3"></script>
 </body>
 </html>

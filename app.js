@@ -234,14 +234,22 @@ function populateMapsForMode() {
 }
 
 function renderTimelineAndBans() {
+  const allPicked = STATE.allyPicks.every(Boolean) && STATE.enemyPicks.every(Boolean);
   const activeMap = getSlotMapping(STATE.activeSnakeSlot, STATE.isFirstPickTeam);
   const turnBadge = document.getElementById("active-turn-badge");
-  turnBadge.textContent = `PICK #${STATE.activeSnakeSlot} • ${activeMap.team === "ally" ? "BLUE" : "RED"}`;
-  turnBadge.className = `turn-pill ${activeMap.team === "ally" ? "blue-pill" : "red-pill"}`;
+  if (allPicked) {
+    turnBadge.textContent = "DRAFT COMPLETE • 3V3";
+    turnBadge.className = "turn-pill blue-pill";
+  } else {
+    turnBadge.textContent = `PICK #${STATE.activeSnakeSlot} • ${activeMap.team === "ally" ? "BLUE" : "RED"}`;
+    turnBadge.className = `turn-pill ${activeMap.team === "ally" ? "blue-pill" : "red-pill"}`;
+  }
 
   const mobRecTab = document.querySelector('.mobile-tab[data-view="recs"] span');
   if (mobRecTab) {
-    mobRecTab.textContent = `★ AI Picks • #${STATE.activeSnakeSlot} ${activeMap.team === "ally" ? "BLUE" : "RED"}`;
+    mobRecTab.textContent = allPicked
+      ? "✓ 3v3 Draft Complete"
+      : `★ AI Picks • #${STATE.activeSnakeSlot} ${activeMap.team === "ally" ? "BLUE" : "RED"}`;
   }
 
   const timelineEl = document.getElementById("snake-timeline");
@@ -515,6 +523,7 @@ function assignBrawler(brawlerName) {
     const emptyEnemy = STATE.enemyPicks.indexOf(null);
     if (emptyEnemy !== -1) STATE.enemyPicks[emptyEnemy] = brawlerName;
   } else {
+    if (STATE.allyPicks.every(Boolean) && STATE.enemyPicks.every(Boolean)) return;
     const mapping = getSlotMapping(STATE.activeSnakeSlot, STATE.isFirstPickTeam);
     if (mapping.team === "ally") {
       STATE.allyPicks[mapping.teamSlot] = brawlerName;
@@ -604,8 +613,11 @@ async function requestRecommendations() {
   const spinner = document.getElementById("rec-loading");
   const mapping = getSlotMapping(STATE.activeSnakeSlot, STATE.isFirstPickTeam);
 
-  document.getElementById("rec-subtitle").textContent =
-    `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map}`;
+  const allPicked = STATE.allyPicks.every(Boolean) && STATE.enemyPicks.every(Boolean);
+
+  document.getElementById("rec-subtitle").textContent = allPicked
+    ? `3v3 Draft Complete • ${STATE.map}`
+    : `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map}`;
   spinner.classList.remove("hidden");
 
   const pickingIsAlly = mapping.team === "ally";
@@ -676,6 +688,27 @@ async function requestRecommendations() {
 
     const mapMatches = typeof data.map_matches === "number" ? data.map_matches : STATE.mapMatchCounts[STATE.map];
     const filterNote = useLv11Filter ? ` • My Lv 11 (${STATE.playerLevel11Set.size})` : "";
+    if (allPicked) {
+      document.getElementById("rec-subtitle").textContent = `3v3 Draft Complete • ${STATE.map}`;
+      const bPct = typeof data.blue_win_probability === "number" ? data.blue_win_probability.toFixed(1) : "50.0";
+      const rPct = (100 - Number(bPct)).toFixed(1);
+      recList.innerHTML = `
+        <div class="empty-card dyn-fade" style="text-align:left;padding:18px;">
+          <div class="verdict-eyebrow" style="margin-bottom:6px;">✓ ALL 6 PICKS LOCKED (3V3)</div>
+          <h3 class="brawl-title" style="font-size:18px;margin-bottom:8px;">Blue ${bPct}% vs Red ${rPct}%</h3>
+          <p class="muted-tag" style="margin-bottom:14px;line-height:1.5;">
+            Tap any picked brawler on the left to swap it, or run <strong>Vault AI Review</strong> for lane assignments, win conditions, and counterplay.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" id="complete-review-btn" class="btn btn-gold btn-sm">✦ Vault AI Gameplan</button>
+            <button type="button" id="complete-share-btn" class="btn btn-ghost btn-sm">🔗 Share Draft</button>
+          </div>
+        </div>
+      `;
+      document.getElementById("complete-review-btn")?.addEventListener("click", openAiDraftReview);
+      document.getElementById("complete-share-btn")?.addEventListener("click", copyShareDraftLink);
+      return;
+    }
     if (typeof mapMatches === "number") {
       document.getElementById("rec-subtitle").textContent =
         `Pick #${STATE.activeSnakeSlot} (${mapping.label}) • ${STATE.map} (${mapMatches} pro games)${filterNote}`;
