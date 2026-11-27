@@ -239,6 +239,11 @@ function renderTimelineAndBans() {
   turnBadge.textContent = `PICK #${STATE.activeSnakeSlot} • ${activeMap.team === "ally" ? "BLUE" : "RED"}`;
   turnBadge.className = `turn-pill ${activeMap.team === "ally" ? "blue-pill" : "red-pill"}`;
 
+  const mobRecTab = document.querySelector('.mobile-tab[data-view="recs"] span');
+  if (mobRecTab) {
+    mobRecTab.textContent = `★ AI Picks • #${STATE.activeSnakeSlot} ${activeMap.team === "ally" ? "BLUE" : "RED"}`;
+  }
+
   const timelineEl = document.getElementById("snake-timeline");
   timelineEl.innerHTML = "";
   for (let slot = 1; slot <= 6; slot++) {
@@ -470,6 +475,7 @@ function renderBrawlerGrid() {
     img.src = b.portrait;
     img.alt = b.name;
     img.loading = "lazy";
+    img.decoding = "async";
     img.onerror = () => { img.src = b.cdnFallback; };
 
     const nameEl = document.createElement("div");

@@ -4335,3 +4335,202 @@ button.nav-user-pill:hover {
 .coach-link-site:hover {
   background: rgba(255, 201, 40, 0.22);
 }
+
+
+/* ==================== MOBILE UX & SPEED POLISH PASS ==================== */
+.brawler-tile,
+.upgrade-card,
+.guide-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 96px 110px;
+}
+
+.brawler-tile:active,
+.rec-ban-chip:active,
+.btn:active,
+.filter-pill:active,
+.lookup-dyn-tab:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 920px) {
+  /* Free up vertical space & prevent sticky header collisions on phones */
+  .site-nav {
+    position: relative !important;
+    top: 0 !important;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .nav-brand {
+    order: 1;
+  }
+
+  .nav-auth-slot {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .nav-links {
+    order: 3;
+    flex: 1 1 100%;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    gap: 4px;
+    padding-bottom: 2px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 6px;
+  }
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+  .nav-link {
+    white-space: nowrap;
+    flex-shrink: 0;
+    scroll-snap-align: center;
+    padding: 7px 11px;
+    font-size: 12.5px;
+  }
+
+  /* Clean sticky bars now that .site-nav doesn't block top of screen */
+  .lookup-dyn-tabs {
+    top: 8px !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .lookup-dyn-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .lookup-dyn-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 40px;
+  }
+
+  .mobile-view-tabs {
+    top: 8px;
+    z-index: 35;
+  }
+  .mobile-tab {
+    min-height: 42px;
+  }
+
+  /* Drafting mid-match speed: horizontal ban strip & compact filter bar */
+  .draft-intel-strip {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .rec-bans-list {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    gap: 6px;
+    padding-bottom: 2px;
+  }
+  .rec-bans-list::-webkit-scrollbar {
+    display: none;
+  }
+  .rec-ban-chip {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+
+  .player-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 9px 10px;
+  }
+  .player-filter-left {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+  .player-filter-left .filter-label {
+    display: none;
+  }
+  .player-filter-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .rec-pick-btn,
+  .btn-gold,
+  .btn-blue,
+  .btn-danger {
+    min-height: 40px;
+  }
+
+  /* AI Coach quick prompts: single scrollable row so chat is immediately visible */
+  .ai-coach-prompts {
+    display: flex;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .ai-coach-prompts::-webkit-scrollbar {
+    display: none;
+  }
+  .ai-coach-prompts .filter-pill {
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 36px;
+  }
+
+  /* Modals fit mobile viewports cleanly without clipping */
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 10px;
+  }
+  .modal-card,
+  .acct-modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 86dvh;
+    overflow-y: auto;
+    border-radius: 18px 18px 14px 14px;
+    padding: 18px 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .brand-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .profile-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .profile-actions .btn,
+  .profile-actions a.btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tag-input-row {
+    flex-wrap: nowrap;
+  }
+}

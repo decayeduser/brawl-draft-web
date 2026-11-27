@@ -247,6 +247,14 @@ window.BV = (() => {
     document.getElementById("bv-nav-profile-btn").addEventListener("click", openProfileSettingsModal);
   }
 
+  function centerActiveNavLinkOnMobile() {
+    if (window.innerWidth > 920) return;
+    const active = document.querySelector(".nav-links .nav-link.active");
+    if (active && typeof active.scrollIntoView === "function") {
+      active.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+    }
+  }
+
   function openProfileSettingsModal() {
     if (!currentUser) {
       signInWithGoogle();
@@ -433,9 +441,13 @@ window.BV = (() => {
   })();
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", renderGlobalNavAuth);
+    document.addEventListener("DOMContentLoaded", () => {
+      renderGlobalNavAuth();
+      centerActiveNavLinkOnMobile();
+    });
   } else {
     renderGlobalNavAuth();
+    centerActiveNavLinkOnMobile();
   }
 
   async function apiFetch(endpointPath, options = {}) {
