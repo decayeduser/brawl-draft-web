@@ -12,7 +12,31 @@ const TR_STATE = {
   selectedName: null,
   loading: false,
   stats: loadTrainingStats(),
+  recentAttempts: [],
+  weakModes: [],
 };
+
+async function syncTrainingStatsFromServer() {
+  try {
+    const res = await BV.apiFetch("/api/v1/training/stats");
+    if (res && typeof res.total === "number") {
+      if (res.total >= TR_STATE.stats.total) {
+        TR_STATE.stats = {
+          streak: res.streak || 0,
+          best: Math.max(res.best || 0, TR_STATE.stats.best || 0),
+          correct: res.correct || 0,
+          total: res.total || 0,
+        };
+        saveTrainingStats();
+      }
+      TR_STATE.recentAttempts = Array.isArray(res.recent_attempts) ? res.recent_attempts : [];
+      TR_STATE.weakModes = Array.isArray(res.weak_modes) ? res.weak_modes : [];
+      renderTrainingWorkspace();
+    }
+  } catch {
+    // keep local stats if offline
+  }
+}
 
 function loadTrainingStats() {
   try {
@@ -94,6 +118,33 @@ function handleQuizAnswer(brawlerName) {
   }
   saveTrainingStats();
   renderTrainingWorkspace();
+
+  BV.apiFetch("/api/v1/training/attempt", {
+    method: "POST",
+    body: JSON.stringify({
+      drill: TR_STATE.drill,
+      map: TR_STATE.question.map,
+      mode: TR_STATE.question.mode,
+      picked_brawler: brawlerName,
+      correct_brawler: TR_STATE.question.correct_brawler,
+      is_correct: isRight,
+    }),
+  })
+    .then((res) => {
+      if (res && typeof res.total === "number") {
+        TR_STATE.stats = {
+          streak: res.streak || 0,
+          best: res.best || 0,
+          correct: res.correct || 0,
+          total: res.total || 0,
+        };
+        TR_STATE.recentAttempts = Array.isArray(res.recent_attempts) ? res.recent_attempts : [];
+        TR_STATE.weakModes = Array.isArray(res.weak_modes) ? res.weak_modes : [];
+        saveTrainingStats();
+        renderTrainingWorkspace();
+      }
+    })
+    .catch(() => {});
 }
 
 function renderTeamPill(b, sideClass) {
@@ -257,6 +308,48 @@ function renderTrainingWorkspace() {
 
       ${verdictHtml}
     </section>
+
+    ${
+      TR_STATE.recentAttempts.length
+        ? `
+      <section class="panel dyn-fade">
+        <div class="coaching-header" style="margin-bottom:10px;">
+          <div>
+            <div class="verdict-eyebrow">📊 SAVED 1-ON-1 TRAINING DATA</div>
+            <h3 class="brawl-title coaching-heading">Recent Drills &amp; Mode Accuracy</h3>
+          </div>
+          <span class="stat-chip">${TR_STATE.stats.correct}/${TR_STATE.stats.total} CORRECT</span>
+        </div>
+        ${
+          TR_STATE.weakModes.length
+            ? `<div class="ai-coach-prompts" style="margin-bottom:10px;">${TR_STATE.weakModes
+                .map(
+                  (m) =>
+                    `<span class="stat-chip">${BV.esc(BV.formatMode(m.mode))}: ${m.accuracy}% (${m.correct}/${m.total})</span>`
+                )
+                .join("")}</div>`
+            : ""
+        }
+        <div class="quiz-options-grid">
+          ${TR_STATE.recentAttempts
+            .slice(0, 6)
+            .map(
+              (a) => `
+                <div class="quiz-pick-chip" style="justify-content:space-between;">
+                  <div>
+                    <strong>${BV.esc(a.map)} (${BV.esc(BV.formatMode(a.mode))})</strong>
+                    <span>Picked: ${BV.esc(a.picked_brawler)} ${a.is_correct ? "" : `• Pro: ${BV.esc(a.correct_brawler)}`}</span>
+                  </div>
+                  <span class="${a.is_correct ? "quiz-badge-ok" : "quiz-badge-no"}">${a.is_correct ? "✓" : "✕"}</span>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+        : ""
+    }
   `;
 
   bindModePills();
@@ -276,7 +369,7 @@ function bindModePills() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   updateScoreHeader();
   document.querySelectorAll("[data-drill]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -285,5 +378,8 @@ document.addEventListener("DOMContentLoaded", () => {
       renderTrainingWorkspace();
     });
   });
+  await BV.authReady;
+  syncTrainingStatsFromServer();
+  BV.onAuthChange(() => syncTrainingStatsFromServer());
   loadNextDraftQuestion();
 });
