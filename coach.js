@@ -421,9 +421,16 @@ function renderGoalRoadmap(p) {
   const nearMax = brawlers.filter((b) => b.power === 10 || b.power === 9).sort((a, b) => b.power - a.power || b.trophies - a.trophies);
   const near1k = brawlers.filter((b) => b.trophies >= 750 && b.trophies < 1000).sort((a, b) => b.trophies - a.trophies);
   const easyFarm = brawlers.filter((b) => b.trophies < 600).sort((a, b) => (b.power >= 9 ? 1 : 0) - (a.power >= 9 ? 1 : 0) || a.trophies - b.trophies);
+  const metaTopRecs = (COACH_STATE.upgradeData?.recommendations || []).filter((r) => r.unlocked);
 
   const weekly = [];
-  if (nearMax.length) {
+  if (metaTopRecs.length) {
+    const top = metaTopRecs[0];
+    const spNote = top.build?.star_power ? ` • Pro SP: ${BV.esc(top.build.star_power)}` : "";
+    weekly.push(
+      `<strong>#1 Upgrade Priority (Synced with Upgrade Guide):</strong> Max <strong>${BV.esc(top.name)}</strong> (${BV.esc(top.tier)}-tier, Lv ${top.current_power} → 11: ${top.coins_needed.toLocaleString()} Coins / ${top.pp_needed.toLocaleString()} PP${spNote}).`
+    );
+  } else if (nearMax.length) {
     const pick = nearMax[0];
     const c = calcCostTo11(pick.power);
     weekly.push(`<strong>Upgrade Priority:</strong> Finish <strong>${BV.esc(pick.name)}</strong> (Lv ${pick.power} → 11: ${c.coins.toLocaleString()} Coins / ${c.pp.toLocaleString()} PP).`);
@@ -543,6 +550,8 @@ function buildPlayerActionPlan(p) {
   const nearMax = brawlers.filter((b) => b.power === 10 || b.power === 9).sort((a, b) => b.power - a.power || b.trophies - a.trophies);
   const near1k = brawlers.filter((b) => b.trophies >= 750 && b.trophies < 1000).sort((a, b) => b.trophies - a.trophies);
   const under600 = brawlers.filter((b) => b.trophies < 600).sort((a, b) => a.trophies - b.trophies);
+  const metaTopRecs = (COACH_STATE.upgradeData?.recommendations || []).filter((r) => r.unlocked);
+  const spikes = COACH_STATE.upgradeData?.cheap_power_spikes || [];
   const cards = [];
 
   cards.push({
@@ -551,10 +560,14 @@ function buildPlayerActionPlan(p) {
     title: `Grow Maxed Pool (${p.power11_count} Level 11s)`,
     summary: `Average Power Level: ${p.avg_power} across ${p.brawlers_owned} owned brawlers.`,
     steps: [
-      nearMax.length
-        ? `Closest to Level 11: ${nearMax.slice(0, 4).map((b) => `${b.name} (Lv ${b.power})`).join(" • ")}.`
-        : "Focus all coins & power points on 1 S-tier brawler at a time instead of leveling evenly.",
-      "Prioritize Star Power + Gadget + 2 Gears on your Ranked mains before starting a new upgrade.",
+      metaTopRecs.length
+        ? `Top Meta Upgrades (Synced): ${metaTopRecs.slice(0, 3).map((r, i) => `#${i + 1} ${r.name} (${r.tier}-tier, Lv ${r.current_power}→11)`).join(" • ")}.`
+        : nearMax.length
+          ? `Closest to Level 11: ${nearMax.slice(0, 4).map((b) => `${b.name} (Lv ${b.power})`).join(" • ")}.`
+          : "Focus all coins & power points on 1 S-tier brawler at a time instead of leveling evenly.",
+      spikes.length
+        ? `Cheapest Power Spikes (${spikes.length} Lv 11s missing kit): Finish ${spikes.slice(0, 3).map((s) => `${s.name} (${s.coins_needed.toLocaleString()}c)`).join(" • ")} first.`
+        : "Prioritize Star Power + Gadget + 2 Gears on your Ranked mains before starting a new upgrade.",
     ],
     ctaHref: "#upgrade-tab",
     ctaLabel: "Open Upgrade Guide Tab →",
@@ -1115,16 +1128,24 @@ async function loadCoachTarget(type, rawTag) {
   ws.innerHTML = `<div class="empty-card">Loading live ${type} profile for ${BV.esc(norm)}...</div>`;
 
   try {
-    const data =
-      type === "club"
-        ? await BV.apiFetch(`/api/v1/club/${encodeURIComponent(BV.tagForUrl(norm))}`)
-        : await BV.fetchPlayer(norm, true);
+    let data = null;
+    let upgradeData = null;
+    if (type === "club") {
+      data = await BV.apiFetch(`/api/v1/club/${encodeURIComponent(BV.tagForUrl(norm))}`);
+    } else {
+      const [pData, uData] = await Promise.all([
+        BV.fetchPlayer(norm, true),
+        BV.apiFetch(`/api/v1/player/${encodeURIComponent(BV.tagForUrl(norm))}/upgrade-guide`).catch(() => null),
+      ]);
+      data = pData;
+      upgradeData = uData;
+    }
     COACH_STATE.type = type;
     COACH_STATE.tag = norm;
     const urlTab = new URLSearchParams(window.location.search).get("tab");
     COACH_STATE.subTab = urlTab && ["chat", "roadmap", "plan", "upgrade"].includes(urlTab) ? urlTab : "chat";
     COACH_STATE.profile = data;
-    COACH_STATE.upgradeData = null;
+    COACH_STATE.upgradeData = upgradeData;
 
     const savedChats = getChatsForTarget(type, norm);
     const isFirstTime = savedChats.length === 0 && !hasEverChattedTarget(type, norm);
