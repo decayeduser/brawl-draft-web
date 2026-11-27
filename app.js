@@ -841,7 +841,7 @@ async function openAiDraftReview() {
     return;
   }
 
-  bodyEl.innerHTML = `<div class="muted-tag">Analyzing ${blue.length}v${red.length} matchup on ${BV.esc(STATE.map)} with Gemini 3 Flash...</div>`;
+  bodyEl.innerHTML = `<div class="muted-tag">Analyzing ${blue.length}v${red.length} matchup on ${BV.esc(STATE.map)} with Vault AI...</div>`;
 
   try {
     const res = await BV.apiFetch("/api/v1/draft/review", {

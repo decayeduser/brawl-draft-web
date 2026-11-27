@@ -873,7 +873,7 @@ function renderCoachTabContent() {
     <section class="panel ai-coach-panel dyn-fade">
       <div class="coaching-header">
         <div>
-          <div class="verdict-eyebrow">✦ INTERACTIVE GEMINI AI COACH</div>
+          <div class="verdict-eyebrow">✦ INTERACTIVE VAULT AI COACH</div>
           <h3 class="brawl-title coaching-heading">Ask About ${BV.esc(p.name)}</h3>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -1015,7 +1015,7 @@ function renderCoachFeed() {
           </div>
           ${
             msg.loading
-              ? `<div class="muted-tag">Analyzing live stats &amp; meta with Gemini AI...</div>`
+              ? `<div class="muted-tag">Analyzing live stats &amp; meta with Vault AI...</div>`
               : msg.error
                 ? `<div class="muted-tag">${BV.esc(msg.error)}</div>`
                 : `<div class="ai-coach-prose">${formatCoachMarkdown(msg.text)}</div>`
@@ -1097,7 +1097,7 @@ async function loadCoachTarget(type, rawTag) {
   if (!BV.getAuthUser()) {
     ws.innerHTML = BV.renderAiAuthGate(
       "Sign in with Google to Use AI Coach",
-      "Get personalized Gemini AI coaching, your 4-stage Goal Roadmap, Action Plan, and Level 11 Upgrade Guide — 100% free with a Google account."
+      "Get personalized Vault AI coaching, your 4-stage Goal Roadmap, Action Plan, and Level 11 Upgrade Guide — 100% free with a Google account."
     );
     return;
   }
@@ -1164,7 +1164,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!BV.getAuthUser()) {
       ws.innerHTML = BV.renderAiAuthGate(
         "Sign in with Google to Use AI Coach",
-        "Get personalized Gemini AI coaching, your 4-stage Goal Roadmap, Action Plan, and Level 11 Upgrade Guide — 100% free with a Google account."
+        "Get personalized Vault AI coaching, your 4-stage Goal Roadmap, Action Plan, and Level 11 Upgrade Guide — 100% free with a Google account."
       );
       return;
     }

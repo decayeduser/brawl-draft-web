@@ -2114,7 +2114,7 @@ function renderAiCoachPanel(targetType, tag, name) {
   if (!BV.getAuthUser()) {
     return BV.renderAiAuthGate(
       "Sign in with Google to Use AI Coach",
-      "Unlock live Gemini AI coaching for any Player or Clan — 100% free with a Google account. Your Brawl Stars #TAG also syncs across all tabs."
+      "Unlock live Vault AI coaching for any Player or Clan — 100% free with a Google account. Your Brawl Stars #TAG also syncs across all tabs."
     );
   }
 
@@ -2193,7 +2193,7 @@ async function runAiCoachQuery(targetType, tag, question = "") {
       if (badgeEl) badgeEl.textContent = "DATA MODE";
       outEl.innerHTML = `
         <div class="muted-tag">
-          Live LLM responses aren't enabled yet (${BV.esc(res.message || "add GEMINI_API_KEY on server")}). Your full data-driven coaching breakdown is ready below.
+          Vault AI is temporarily unavailable (${BV.esc(res.message || "try again shortly")}). Your full data-driven coaching breakdown is ready below.
         </div>
       `;
     }
