@@ -2391,6 +2391,7 @@ function renderPlayerProfile(p) {
           </div>
           <div class="profile-actions">
             ${battleMeBtn}
+            <button type="button" id="download-card-btn" class="btn btn-ghost btn-sm" title="Download PNG Profile Card for Discord/TikTok">⬇ Card PNG</button>
             <a href="/coach/?player=${encodeURIComponent(p.tag)}" class="btn btn-gold btn-sm" style="text-decoration:none;">✦ AI Coach &amp; Roadmap →</a>
             <button type="button" id="save-my-tag-btn" class="btn ${isSaved ? "btn-blue" : "btn-ghost"} btn-sm">
               ${isSaved ? "✓ Saved ID" : "★ Save ID"}
@@ -2433,6 +2434,11 @@ function renderPlayerProfile(p) {
     e.currentTarget.textContent = "✓ Saved ID";
     e.currentTarget.className = "btn btn-blue btn-sm";
   });
+
+  const dlCardBtn = document.getElementById("download-card-btn");
+  if (dlCardBtn) {
+    dlCardBtn.addEventListener("click", () => downloadPlayerCardPng(p, rating, verdict));
+  }
 
   const battleBtn = document.getElementById("battle-vs-me-btn");
   if (battleBtn && savedTag) {
@@ -2820,3 +2826,159 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+
+// ==================== DOWNLOADABLE PLAYER PROFILE CARD (PNG) ====================
+function downloadPlayerCardPng(p, rating, verdict) {
+  const W = 1080;
+  const H = 560;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const roundRect = (x, y, w, h, r) => {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  };
+
+  // Dark obsidian background with subtle accent glow
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#0b0d14");
+  bg.addColorStop(1, "#121624");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const glow = ctx.createRadialGradient(W - 180, 120, 20, W - 180, 120, 320);
+  glow.addColorStop(0, "rgba(255, 201, 40, 0.14)");
+  glow.addColorStop(1, "rgba(255, 201, 40, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Outer border frame
+  roundRect(22, 22, W - 44, H - 44, 22);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Brand header
+  ctx.fillStyle = "#ffc928";
+  ctx.font = "800 18px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText("★  BRAWLVAULT  •  PLAYER CARD", 54, 68);
+
+  ctx.fillStyle = "#7b849b";
+  ctx.font = "600 15px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("brawlvault.online", W - 54, 68);
+  ctx.textAlign = "left";
+
+  // Player Name + Tag + Club
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "800 46px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText(String(p.name || "Player").slice(0, 20), 54, 134);
+
+  const clubText = p.club?.name ? `  •  🛡 ${p.club.name}` : "";
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "700 20px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText(`${p.tag || ""}${clubText}`, 54, 168);
+
+  // Strict Rating Ring on the right
+  const cx = W - 180;
+  const cy = 195;
+  const radius = 84;
+  const score = Number(rating?.score || 0);
+  const pct = Math.max(0, Math.min(1, score / 10));
+  const ringColor = score >= 7.8 ? "#2ee59d" : score >= 5.2 ? "#ffc928" : "#ff4d6d";
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 14;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+  ctx.strokeStyle = ringColor;
+  ctx.lineWidth = 14;
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "800 42px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText(score.toFixed(1), cx, cy + 8);
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "700 15px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText("OUT OF 10", cx, cy + 34);
+  ctx.fillStyle = ringColor;
+  ctx.font = "800 15px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText(String(rating?.grade || "").slice(0, 22), cx, cy + 114);
+  ctx.textAlign = "left";
+
+  // 6 KPI tiles
+  const bs = p.battle_stats || {};
+  const diff50k = verdict?.diff50k ?? ((p.trophies || 0) - 50000);
+  const tiles = [
+    { lbl: "TROPHIES", val: `🏆 ${(p.trophies || 0).toLocaleString()}`, col: "#ffc928" },
+    { lbl: "VS 50K AVG", val: `${diff50k >= 0 ? "+" : "-"}${Math.abs(diff50k).toLocaleString()}`, col: diff50k >= 0 ? "#2ee59d" : "#ff4d6d" },
+    { lbl: "3V3 WINS", val: `${(p.victories_3v3 || 0).toLocaleString()} (${rating?.share_3v3_pct ?? 0}%)`, col: "#f8fafc" },
+    { lbl: "LEVEL 11s", val: `${p.power11_count || 0} / ${p.brawlers_owned || 0}`, col: "#2ee59d" },
+    { lbl: "RECENT WR", val: bs.win_rate != null ? `${bs.win_rate}%` : "N/A", col: (bs.win_rate ?? 50) >= 55 ? "#2ee59d" : "#ff4d6d" },
+    { lbl: "1,000+ BRAWLERS", val: String(p.max_tier_brawlers || 0), col: "#38bdf8" },
+  ];
+
+  const tileW = 224;
+  const tileH = 88;
+  const gap = 16;
+  tiles.forEach((t, idx) => {
+    const col = idx % 3;
+    const row = Math.floor(idx / 3);
+    const x = 54 + col * (tileW + gap);
+    const y = 204 + row * (tileH + gap);
+    roundRect(x, y, tileW, tileH, 14);
+    ctx.fillStyle = "rgba(255,255,255,0.035)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = "#8a94ad";
+    ctx.font = "700 12px 'Plus Jakarta Sans', system-ui, sans-serif";
+    ctx.fillText(t.lbl, x + 16, y + 28);
+
+    ctx.fillStyle = t.col;
+    ctx.font = "800 24px 'Plus Jakarta Sans', system-ui, sans-serif";
+    ctx.fillText(t.val, x + 16, y + 64);
+  });
+
+  // Top 3 Mains footer strip
+  const top3 = [...(p.brawlers || [])].sort((a, b) => b.trophies - a.trophies).slice(0, 3);
+  roundRect(54, 424, W - 108, 82, 14);
+  ctx.fillStyle = "rgba(255,255,255,0.03)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#8a94ad";
+  ctx.font = "800 13px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText("TOP 3 BRAWLERS", 74, 452);
+
+  const mainsLine = top3.length
+    ? top3.map((b, i) => `#${i + 1} ${b.name} (${b.trophies.toLocaleString()} 🏆 • Lv${b.power})`).join("    •    ")
+    : "No brawlers found";
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "700 19px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillText(mainsLine, 74, 486);
+
+  const link = document.createElement("a");
+  const safeName = String(p.name || "player").replace(/[^a-zA-Z0-9_-]/g, "_");
+  link.download = `BrawlVault_${safeName}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}

@@ -42,9 +42,17 @@
             </div>
           </div>
         </div>
-        <button id="reset-draft-btn" class="btn btn-danger btn-reset" title="Reset Draft">
-          ↺ Reset
-        </button>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button id="ai-draft-review-btn" class="btn btn-gold btn-sm" title="Get a 15-second AI gameplan for this draft">
+            ✦ AI Review
+          </button>
+          <button id="share-draft-btn" class="btn btn-ghost btn-sm" title="Copy shareable link for this draft">
+            🔗 Share
+          </button>
+          <button id="reset-draft-btn" class="btn btn-danger btn-reset" title="Reset Draft">
+            ↺ Reset
+          </button>
+        </div>
       </div>
 
       <div class="controls-bar">
@@ -232,6 +240,15 @@
       </section>
     </main>
 
+    <div id="draft-review-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="AI Draft Review">
+      <div class="modal-card acct-modal-card dyn-fade" style="max-width:600px;">
+        <button type="button" id="draft-review-close" class="modal-close" aria-label="Close">✕</button>
+        <div class="verdict-eyebrow" style="margin-bottom:4px;">✦ GEMINI 3 FLASH • POST-DRAFT GAMEPLAN</div>
+        <h3 id="draft-review-title" class="brawl-title" style="font-size:20px;margin-bottom:10px;">AI Draft Review</h3>
+        <div id="draft-review-body" class="ai-coach-prose"></div>
+      </div>
+    </div>
+
     <footer class="site-footer">
       <p>
         This material is unofficial and is not endorsed by Supercell. For more information see Supercell's Fan Content Policy:
@@ -242,6 +259,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/shared.js?v=29"></script>
-  <script src="/app.js?v=28"></script>
+  <script src="/app.js?v=29"></script>
 </body>
 </html>

@@ -52,11 +52,59 @@ function loadAllChats() {
   }
 }
 
-function saveAllChats(chats) {
+function saveAllChats(chats, skipCloud = false) {
+  const trimmed = (chats || []).slice(0, 25);
   try {
-    localStorage.setItem(getChatStorageKey(), JSON.stringify((chats || []).slice(0, 25)));
+    localStorage.setItem(getChatStorageKey(), JSON.stringify(trimmed));
   } catch {
     // ignore quota errors
+  }
+  if (!skipCloud && BV.getAuthUser()) {
+    BV.apiFetch("/api/v1/coach/history", {
+      method: "POST",
+      body: JSON.stringify({ chats: trimmed }),
+    }).catch(() => {});
+  }
+}
+
+let _cloudChatsSyncedUid = null;
+async function syncChatsFromCloud() {
+  const user = BV.getAuthUser();
+  if (!user || _cloudChatsSyncedUid === user.id) return;
+  _cloudChatsSyncedUid = user.id;
+  try {
+    const res = await BV.apiFetch("/api/v1/coach/history");
+    const remote = Array.isArray(res?.chats) ? res.chats : [];
+    const local = loadAllChats();
+    if (!remote.length && !local.length) return;
+
+    const byId = new Map();
+    for (const c of [...remote, ...local]) {
+      if (!c || !c.id) continue;
+      const prev = byId.get(c.id);
+      if (!prev || (c.updatedAt || 0) > (prev.updatedAt || 0)) {
+        byId.set(c.id, c);
+      }
+    }
+    const merged = Array.from(byId.values())
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .slice(0, 25);
+
+    saveAllChats(merged, true);
+    if (local.length > remote.length) {
+      saveAllChats(merged, false);
+    }
+    if (COACH_STATE.profile && !COACH_STATE.messages.length) {
+      const targetChats = getChatsForTarget(COACH_STATE.type, COACH_STATE.profile.tag);
+      if (targetChats.length) {
+        COACH_STATE.activeChatId = targetChats[0].id;
+        COACH_STATE.messages = targetChats[0].messages.map((m) => ({ ...m, loading: false }));
+        renderCoachFeed();
+      }
+    }
+    renderChatHistoryBar();
+  } catch {
+    // ignore offline/sync error
   }
 }
 
@@ -608,7 +656,73 @@ function renderEmbeddedUpgradeGuide() {
   const lowCnt = all.filter((r) => r.unlocked && r.current_power <= 8).length;
   const lockedCnt = all.filter((r) => !r.unlocked).length;
 
+  // Cheap Power Spikes: already-Lv11 brawlers missing Star Power, Gadget, or Gears
+  const spikes = Array.isArray(u.cheap_power_spikes)
+    ? u.cheap_power_spikes
+    : (COACH_STATE.profile?.brawlers || [])
+        .filter((b) => b.power >= 11)
+        .map((b) => {
+          const missing = [];
+          let coins = 0;
+          if (!(b.star_powers || []).length) { missing.push("Star Power"); coins += 2000; }
+          if (!(b.gadgets || []).length) { missing.push("Gadget"); coins += 1000; }
+          const mg = Math.max(0, 2 - (b.gears || []).length);
+          if (mg > 0) { missing.push(`${mg} Gear${mg > 1 ? "s" : ""}`); coins += mg * 1000; }
+          return missing.length
+            ? { id: b.id, name: b.name, tier: "A", trophies: b.trophies || 0, missing, coins_needed: coins, build: {} }
+            : null;
+        })
+        .filter(Boolean);
+
+  const spikesHtml = spikes.length
+    ? `
+      <section class="panel dyn-fade" style="margin-bottom:14px;">
+        <div class="coaching-header" style="margin-bottom:10px;">
+          <div>
+            <div class="verdict-eyebrow">⚡ CHEAPEST RANKED POWER SPIKES • FINISH YOUR LV 11 KITS FIRST</div>
+            <h3 class="brawl-title coaching-heading">${spikes.length} Level 11 Brawler${spikes.length === 1 ? "" : "s"} Missing Kit</h3>
+          </div>
+          <span class="stat-chip chip-pick">NO POWER POINTS NEEDED</span>
+        </div>
+        <div class="upgrade-grid">
+          ${spikes
+            .slice(0, 8)
+            .map((sp) => {
+              const b = sp.build || {};
+              return `
+                <article class="upgrade-card">
+                  <div class="upgrade-card-head">
+                    <div class="upgrade-identity">
+                      <img src="${BV.resolvePortraitUrl(sp.portrait, sp.id)}" alt="${BV.esc(sp.name)}" loading="lazy" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${sp.id}.png'" />
+                      <div>
+                        <div class="upgrade-name-line">
+                          <span class="upgrade-name">${BV.esc(sp.name)}</span>
+                          ${sp.tier ? `<span class="tier-pill tier-${sp.tier.toLowerCase()}">${sp.tier}</span>` : ""}
+                        </div>
+                        <div class="upgrade-level-row">
+                          <span class="level-tag">Lv 11 • ${(sp.trophies || 0).toLocaleString()} 🏆</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span class="cost-chip cost-coins">🪙 ${sp.coins_needed.toLocaleString()}</span>
+                  </div>
+                  <div class="build-box">
+                    <div class="build-title">MISSING: ${BV.esc(sp.missing.join(" + "))}</div>
+                    ${b.star_power ? `<div class="build-row"><span class="build-key">★ SP</span><span class="build-val">${BV.esc(b.star_power)}${b.owns_star_power ? '<span class="owned-badge">✓</span>' : ""}</span></div>` : ""}
+                    ${b.gadget ? `<div class="build-row"><span class="build-key">⚙ Gadget</span><span class="build-val">${BV.esc(b.gadget)}${b.owns_gadget ? '<span class="owned-badge">✓</span>' : ""}</span></div>` : ""}
+                    ${(b.gears || []).length ? `<div class="build-row"><span class="build-key">⛨ Gears</span><span class="build-val">${BV.esc(b.gears.join(" + "))}</span></div>` : ""}
+                  </div>
+                </article>
+              `;
+            })
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
+
   box.innerHTML = `
+    ${spikesHtml}
     <div class="explorer-toolbar">
       <div class="filter-pills">
         <button type="button" class="filter-pill ${COACH_STATE.upgradeFilter === "unlocked" ? "active" : ""}" data-ufilter="unlocked">All Under Lv 11 (${unlockedCnt})</button>
@@ -1075,6 +1189,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   await BV.authReady;
+  await syncChatsFromCloud();
   initCoachView();
-  BV.onAuthChange(() => initCoachView());
+  BV.onAuthChange(async () => {
+    await syncChatsFromCloud();
+    initCoachView();
+  });
 });

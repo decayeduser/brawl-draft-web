@@ -167,6 +167,34 @@ async function loadMetadata() {
       document.getElementById("map-select").value = qMap;
     }
 
+    // Restore shared draft state (?fp=0&bans=A,B&blue=C,D&red=E,F)
+    const knownNames = new Set(STATE.brawlers.map((b) => b.name.toUpperCase()));
+    const parseList = (param, maxLen) =>
+      (urlParams.get(param) || "")
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => s && knownNames.has(s))
+        .slice(0, maxLen);
+
+    const qFp = urlParams.get("fp");
+    if (qFp === "0" || qFp === "1") {
+      STATE.isFirstPickTeam = qFp === "1";
+      const fpBtn = document.getElementById("first-pick-toggle");
+      if (fpBtn) {
+        fpBtn.textContent = STATE.isFirstPickTeam ? "BLUE 1ST" : "RED 1ST";
+        fpBtn.className = STATE.isFirstPickTeam ? "btn btn-blue" : "btn btn-red";
+      }
+    }
+    const qBans = parseList("bans", 6);
+    qBans.forEach((b, i) => { STATE.bans[i] = b; });
+    const qBlue = parseList("blue", 3);
+    qBlue.forEach((b, i) => { STATE.allyPicks[i] = b; });
+    const qRed = parseList("red", 3);
+    qRed.forEach((b, i) => { STATE.enemyPicks[i] = b; });
+    if (qBlue.length || qRed.length) {
+      STATE.activeSnakeSlot = findNextEmptySnakeSlot(1);
+    }
+
     const stats = data.stats || {};
     const trainedAt = stats.last_model_update
       ? new Date(stats.last_model_update * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -764,7 +792,125 @@ function renderAll() {
   renderBrawlerGrid();
 }
 
+function formatDraftReviewMarkdown(raw) {
+  const safe = BV.esc(String(raw || "").trim());
+  const lines = safe.split(/\r?\n/);
+  const out = [];
+  let inList = false;
+  const fmt = (s) =>
+    s
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      continue;
+    }
+    if (/^#{1,3}\s+/.test(t)) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(`<h4 class="ai-coach-h">${fmt(t.replace(/^#{1,3}\s+/, ""))}</h4>`);
+    } else if (/^[-*•]\s+/.test(t) || /^\d+\.\s+/.test(t)) {
+      if (!inList) { out.push('<ul class="ai-coach-ul">'); inList = true; }
+      out.push(`<li>${fmt(t.replace(/^([-*•]|\d+\.)\s+/, ""))}</li>`);
+    } else {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(`<p class="ai-coach-p">${fmt(t)}</p>`);
+    }
+  }
+  if (inList) out.push("</ul>");
+  return out.join("");
+}
+
+async function openAiDraftReview() {
+  const modal = document.getElementById("draft-review-modal");
+  const titleEl = document.getElementById("draft-review-title");
+  const bodyEl = document.getElementById("draft-review-body");
+  if (!modal || !bodyEl) return;
+
+  const blue = STATE.allyPicks.filter(Boolean);
+  const red = STATE.enemyPicks.filter(Boolean);
+  const bans = STATE.bans.filter(Boolean);
+
+  titleEl.textContent = `${STATE.map} • ${BV.formatMode(STATE.mode)}`;
+  modal.classList.remove("hidden");
+
+  if (!blue.length && !red.length) {
+    bodyEl.innerHTML = `<div class="muted-tag">Pick at least 1 brawler on Blue or Red team first, then click <strong>✦ AI Review</strong> for lane assignments &amp; win conditions.</div>`;
+    return;
+  }
+
+  bodyEl.innerHTML = `<div class="muted-tag">Analyzing ${blue.length}v${red.length} matchup on ${BV.esc(STATE.map)} with Gemini 3 Flash...</div>`;
+
+  try {
+    const res = await BV.apiFetch("/api/v1/draft/review", {
+      method: "POST",
+      body: JSON.stringify({
+        map: STATE.map,
+        mode: STATE.mode,
+        blue_picks: blue,
+        red_picks: red,
+        banned_brawlers: bans,
+        blue_is_first_pick: STATE.isFirstPickTeam,
+      }),
+    });
+    if (res.ai_enabled && res.response) {
+      const quotaNote = res.usage ? `<div class="muted-tag" style="margin-top:12px;">AI Quota: ${res.usage.remaining}/${res.usage.limit} left today</div>` : "";
+      bodyEl.innerHTML = `${formatDraftReviewMarkdown(res.response)}${quotaNote}`;
+    } else {
+      bodyEl.innerHTML = `<div class="muted-tag">${BV.esc(res.message || "Could not generate AI Draft Review right now.")}</div>`;
+    }
+  } catch (err) {
+    bodyEl.innerHTML = `<div class="muted-tag">${BV.esc(err.message || "Could not reach AI Draft Review.")}</div>`;
+  }
+}
+
+function copyShareDraftLink() {
+  const btn = document.getElementById("share-draft-btn");
+  const params = new URLSearchParams();
+  params.set("mode", STATE.mode);
+  params.set("map", STATE.map);
+  params.set("fp", STATE.isFirstPickTeam ? "1" : "0");
+  const bans = STATE.bans.filter(Boolean);
+  const blue = STATE.allyPicks.filter(Boolean);
+  const red = STATE.enemyPicks.filter(Boolean);
+  if (bans.length) params.set("bans", bans.join(","));
+  if (blue.length) params.set("blue", blue.join(","));
+  if (red.length) params.set("red", red.join(","));
+
+  const shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+  const done = () => {
+    if (!btn) return;
+    const prev = btn.textContent;
+    btn.textContent = "✓ Copied!";
+    setTimeout(() => { btn.textContent = prev; }, 2000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareUrl).then(done).catch(() => {
+      window.prompt("Copy this draft link:", shareUrl);
+    });
+  } else {
+    window.prompt("Copy this draft link:", shareUrl);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  const reviewBtn = document.getElementById("ai-draft-review-btn");
+  if (reviewBtn) reviewBtn.addEventListener("click", openAiDraftReview);
+
+  const shareBtn = document.getElementById("share-draft-btn");
+  if (shareBtn) shareBtn.addEventListener("click", copyShareDraftLink);
+
+  const reviewModal = document.getElementById("draft-review-modal");
+  const reviewClose = document.getElementById("draft-review-close");
+  if (reviewClose && reviewModal) {
+    reviewClose.addEventListener("click", () => reviewModal.classList.add("hidden"));
+    reviewModal.addEventListener("click", (e) => {
+      if (e.target === reviewModal) reviewModal.classList.add("hidden");
+    });
+  }
+
   document.getElementById("mode-select").addEventListener("change", (e) => {
     STATE.mode = e.target.value;
     populateMapsForMode();
