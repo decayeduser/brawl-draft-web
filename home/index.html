@@ -172,6 +172,15 @@
       </a>
     </section>
 
+    <div id="map-cheatsheet-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Map Cheat-Sheet">
+      <div class="modal-card acct-modal-card dyn-fade" style="max-width:660px;">
+        <button type="button" id="cheatsheet-close" class="modal-close" aria-label="Close">✕</button>
+        <div id="cheatsheet-eyebrow" class="verdict-eyebrow" style="margin-bottom:4px;">📋 LIVE MAP CHEAT-SHEET</div>
+        <h3 id="cheatsheet-title" class="brawl-title" style="font-size:22px;margin-bottom:12px;">Loading Map...</h3>
+        <div id="cheatsheet-body"></div>
+      </div>
+    </div>
+
     <footer class="site-footer">
       <p>
         This material is unofficial and is not endorsed by Supercell. For more information see Supercell's Fan Content Policy:
@@ -206,8 +215,11 @@
       const btn = document.getElementById("home-tag-btn");
       const clearBtn = document.getElementById("home-tag-clear");
       const pill = document.getElementById("home-player-pill");
+      let connectedProfile = null;
+      const rotationByMap = new Map();
 
       function showPlayer(p) {
+        connectedProfile = p;
         pill.className = "connected-player-pill";
         pill.innerHTML = `
           <span><strong>${BV.esc(p.name)}</strong> (${BV.esc(p.tag)})</span>
@@ -244,11 +256,163 @@
       });
 
       clearBtn.addEventListener("click", () => {
+        connectedProfile = null;
         BV.setSavedTag("");
         input.value = "";
         pill.className = "connected-player-pill hidden";
         clearBtn.classList.add("hidden");
       });
+
+      const csModal = document.getElementById("map-cheatsheet-modal");
+      const csClose = document.getElementById("cheatsheet-close");
+      if (csClose && csModal) {
+        csClose.addEventListener("click", () => csModal.classList.add("hidden"));
+        csModal.addEventListener("click", (e) => {
+          if (e.target === csModal) csModal.classList.add("hidden");
+        });
+      }
+
+      async function openMapCheatSheet(mode, mapName) {
+        const eyebrow = document.getElementById("cheatsheet-eyebrow");
+        const titleEl = document.getElementById("cheatsheet-title");
+        const bodyEl = document.getElementById("cheatsheet-body");
+        if (!csModal || !bodyEl) return;
+
+        const draftUrl = `/drafting/?mode=${encodeURIComponent(mode)}&map=${encodeURIComponent(mapName)}`;
+        eyebrow.textContent = `📋 ${BV.formatMode(mode).toUpperCase()} • MAP CHEAT-SHEET`;
+        titleEl.textContent = mapName;
+        bodyEl.innerHTML = `<div class="muted-tag">Loading live pro meta, bans &amp; your Level 11 matches...</div>`;
+        csModal.classList.remove("hidden");
+
+        try {
+          const [draftRes, tierRes] = await Promise.all([
+            BV.apiFetch("/api/v1/draft/recommend", {
+              method: "POST",
+              body: JSON.stringify({
+                map: mapName,
+                mode,
+                banned_brawlers: [],
+                ally_picks: [],
+                enemy_picks: [],
+                next_pick_slot: 1,
+                is_first_pick_team: true,
+              }),
+            }),
+            BV.apiFetch(`/api/v1/tierlist?mode=${encodeURIComponent(mode)}&map=${encodeURIComponent(mapName)}`),
+          ]);
+
+          const firstPicks = (draftRes.recommendations || []).slice(0, 3);
+          const topBans = (draftRes.recommended_bans || []).slice(0, 4);
+          const sAndA = [
+            ...((tierRes.tiers && tierRes.tiers.S) || []),
+            ...((tierRes.tiers && tierRes.tiers.A) || []),
+          ];
+          const rotEv = rotationByMap.get(mapName);
+
+          const firstHtml = firstPicks.length
+            ? firstPicks
+                .map(
+                  (r, i) => `
+                    <div class="stat-tile" style="display:flex;align-items:center;gap:10px;text-align:left;">
+                      <img src="${BV.resolvePortraitUrl(r.portrait, r.brawler_id)}" alt="${BV.esc(r.brawler)}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${r.brawler_id}.png'" />
+                      <div style="min-width:0;">
+                        <strong style="display:block;font-size:13.5px;">#${i + 1} ${BV.esc(r.brawler)}</strong>
+                        <span style="font-size:11px;">${r.map_win_rate}% WR • ${r.pick_rate}% PR</span>
+                        <div style="font-size:10.5px;color:var(--gold);margin-top:2px;">${BV.esc(r.reason_tag)}</div>
+                      </div>
+                    </div>
+                  `
+                )
+                .join("")
+            : `<div class="muted-tag">Not enough map data yet.</div>`;
+
+          const bansHtml = topBans.length
+            ? topBans
+                .map(
+                  (b) => `
+                    <div class="rec-ban-chip" style="cursor:default;">
+                      <img src="${BV.resolvePortraitUrl(b.portrait, b.brawler_id)}" alt="${BV.esc(b.brawler)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.brawler_id}.png'" />
+                      <div class="rbc-info">
+                        <strong>${BV.esc(b.brawler)}</strong>
+                        <span>${b.map_win_rate}% WR${b.pick_rate ? ` • ${b.pick_rate}% PR` : ""}</span>
+                      </div>
+                    </div>
+                  `
+                )
+                .join("")
+            : `<div class="muted-tag">No ban threats available.</div>`;
+
+          let myLv11Html = `<div class="muted-tag">Connect your Brawl Stars #TAG on Home to highlight which of <strong>your Level 11 brawlers</strong> dominate ${BV.esc(mapName)}.</div>`;
+          if (connectedProfile && Array.isArray(connectedProfile.power11_brawlers)) {
+            const mySet = new Set(connectedProfile.power11_brawlers.map((n) => n.toUpperCase()));
+            const matches = sAndA.filter((b) => mySet.has(b.name.toUpperCase())).slice(0, 4);
+            if (matches.length) {
+              myLv11Html = `
+                <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+                  ${matches
+                    .map((b) => {
+                      const bld = b.build || {};
+                      return `
+                        <div class="stat-tile" style="display:flex;align-items:center;gap:10px;text-align:left;">
+                          <img src="${BV.resolvePortraitUrl(b.portrait, b.id)}" alt="${BV.esc(b.name)}" style="width:38px;height:38px;border-radius:8px;object-fit:cover;" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.id}.png'" />
+                          <div style="min-width:0;">
+                            <strong style="display:block;font-size:13px;">${BV.esc(b.name)} <span class="tier-pill tier-${b.tier.toLowerCase()}" style="font-size:10px;padding:1px 5px;">${b.tier}</span></strong>
+                            <span style="font-size:11px;">${b.win_rate}% WR • ${BV.esc(bld.star_power || "Meta SP")}</span>
+                          </div>
+                        </div>
+                      `;
+                    })
+                    .join("")}
+                </div>
+              `;
+            } else {
+              myLv11Html = `<div class="muted-tag">None of your current Level 11s are in S/A-tier on ${BV.esc(mapName)} — check the <strong>AI Coach Upgrade Guide</strong>!</div>`;
+            }
+          }
+
+          const compBlock =
+            rotEv && (rotEv.best_comp || []).length
+              ? `
+                <div style="margin-bottom:14px;">
+                  <div class="rot-comp-label" style="margin-bottom:6px;">★ BEST AI 3V3 COMP</div>
+                  <div class="rot-comp-row">
+                    ${rotEv.best_comp
+                      .map(
+                        (b) => `
+                          <div class="rot-brawler">
+                            <img src="${BV.resolvePortraitUrl(b.portrait, b.id)}" alt="${BV.esc(b.name)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.id}.png'" />
+                            <span>${BV.esc(b.name)}</span>
+                          </div>
+                        `
+                      )
+                      .join("")}
+                  </div>
+                </div>
+              `
+              : "";
+
+          bodyEl.innerHTML = `
+            ${compBlock}
+            <div style="margin-bottom:14px;">
+              <div class="rot-comp-label" style="margin-bottom:6px;">🥇 TOP 3 SAFE FIRST PICKS</div>
+              <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">${firstHtml}</div>
+            </div>
+            <div style="margin-bottom:14px;">
+              <div class="rot-comp-label" style="margin-bottom:6px;">🚫 TOP MUST-BAN THREATS</div>
+              <div class="rec-bans-list">${bansHtml}</div>
+            </div>
+            <div style="margin-bottom:16px;">
+              <div class="rot-comp-label" style="margin-bottom:6px;">⚡ YOUR BEST LEVEL 11 BRAWLERS HERE</div>
+              ${myLv11Html}
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;">
+              <a href="${draftUrl}" class="btn btn-gold btn-sm" style="text-decoration:none;">Draft This Map →</a>
+            </div>
+          `;
+        } catch (err) {
+          bodyEl.innerHTML = `<div class="muted-tag">${BV.esc(err.message || "Could not load map cheat-sheet right now.")}</div>`;
+        }
+      }
 
       const saved = BV.getSavedTag();
       if (saved) {
@@ -272,6 +436,7 @@
           const events = (rot.events || []).slice(0, 6);
           if (!events.length) throw new Error("empty");
           badge.textContent = `${events.length} LIVE MAPS NOW`;
+          events.forEach((ev) => rotationByMap.set(ev.map, ev));
           grid.innerHTML = events
             .map((ev) => {
               const compHtml = (ev.best_comp || [])
@@ -310,12 +475,18 @@
                   <div class="rot-picks-row">${topChips}</div>
                   <div class="rot-card-foot">
                     <span class="muted-tag">${sampleLabel}</span>
-                    <a href="${draftUrl}" class="coach-cta">Draft This Map →</a>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <button type="button" class="btn btn-ghost btn-sm rot-cheat-btn" data-mode="${BV.esc(ev.mode)}" data-map="${BV.esc(ev.map)}">📋 Cheat-Sheet</button>
+                      <a href="${draftUrl}" class="coach-cta">Draft →</a>
+                    </div>
                   </div>
                 </article>
               `;
             })
             .join("");
+          grid.querySelectorAll(".rot-cheat-btn").forEach((b) => {
+            b.addEventListener("click", () => openMapCheatSheet(b.dataset.mode, b.dataset.map));
+          });
         } catch {
           // Graceful fallback using active maps from metadata
           const mapsByMode = metaFallback?.maps_by_mode || {};
@@ -347,13 +518,16 @@
                     <span class="rot-timer">${ev.cnt.toLocaleString()} pro games</span>
                   </div>
                   <div class="rot-card-foot">
-                    <a href="/tierlist/" class="muted-tag" style="text-decoration:none;">View Map Tiers</a>
-                    <a href="${draftUrl}" class="coach-cta">Draft This Map →</a>
+                    <button type="button" class="btn btn-ghost btn-sm rot-cheat-btn" data-mode="${BV.esc(ev.mode)}" data-map="${BV.esc(ev.map)}">📋 Cheat-Sheet</button>
+                    <a href="${draftUrl}" class="coach-cta">Draft →</a>
                   </div>
                 </article>
               `;
             })
             .join("");
+          grid.querySelectorAll(".rot-cheat-btn").forEach((b) => {
+            b.addEventListener("click", () => openMapCheatSheet(b.dataset.mode, b.dataset.map));
+          });
         }
       }
 
