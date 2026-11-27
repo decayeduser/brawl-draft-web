@@ -260,7 +260,13 @@ function formatCoachMarkdown(raw) {
         const isYt = /^https:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(url);
         const isLocal = /^\/[a-zA-Z0-9_\-\/?=&%#.]*$/.test(url);
         if (isYt) {
-          return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="coach-link-yt">▶ ${label}</a>`;
+          // Never allow hallucinated watch?v= or youtu.be/ IDs — always route to live YouTube search for the pro + topic
+          const isSearchOrChannel = /youtube\.com\/(results\?search_query=|@|c\/|channel\/)/i.test(url);
+          const cleanLabel = label.replace(/[*_`]/g, "").trim();
+          const finalUrl = isSearchOrChannel
+            ? url
+            : `https://www.youtube.com/results?search_query=${encodeURIComponent(`${cleanLabel} Brawl Stars`)}`;
+          return `<a href="${finalUrl}" target="_blank" rel="noopener noreferrer" class="coach-link-yt">▶ ${label}</a>`;
         }
         if (isLocal) {
           return `<a href="${url}" class="coach-link-site">↗ ${label}</a>`;
