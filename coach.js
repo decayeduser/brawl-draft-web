@@ -727,10 +727,11 @@ function renderCoachTabContent() {
       ]
     : [
         { label: "Full Breakdown", q: "" },
-        { label: "Who Should I Upgrade Next?", q: "Based on my Lv 9-10 brawlers and the current S-tier meta, which exact 3 brawlers should I max to Lv 11 next?" },
-        { label: "Best 3 Brawlers to Push", q: "Which exact 3 brawlers on my account should I push to 1,000 trophies first this week and why?" },
-        { label: "Fix My Recent Losses", q: "Analyze my recent match history and tell me why I am losing games and what to change." },
-        { label: "Honest Roast", q: "Roast my account brutally using my real stats vs the 50k average, then tell me how to fix it." },
+        { label: "Who Should I Upgrade Next?", q: "Based on my Lv 9-10 brawlers, exact Coin/PP costs, and the current S-tier meta, which exact 3 brawlers should I max to Lv 11 next and with what Pro Build?" },
+        { label: "Ranked Role Gaps", q: "Audit my Level 11 role coverage (Tanks, Marksmen, Throwers, Assassins, Controllers, Support) and tell me which missing roles are hurting me most in Ranked." },
+        { label: "Best 3 Brawlers to Push", q: "Which exact 3 brawlers on my account should I push to 1,000 trophies or farm first this week and why?" },
+        { label: "Fix My Recent Losses", q: "Break down my recent mode W-L and most-lost brawlers to tell me exactly why I am losing games and what to stop doing." },
+        { label: "Honest Roast", q: "Roast my account brutally using my real stats vs the 50k average, then give me 2 fast fixes." },
       ];
 
   slot.innerHTML = `
@@ -761,8 +762,8 @@ function renderCoachTabContent() {
           id="coach-question-input"
           class="search-input tag-field"
           style="text-transform:none;"
-          maxlength="240"
-          placeholder="Ask anything — e.g. 'Should I max Surge or Piper next?' or 'Why am I stuck under 50k?'"
+          maxlength="380"
+          placeholder="Ask anything — e.g. 'Should I max Surge or Piper next?' or follow up on the last answer..."
         />
         <button type="submit" id="coach-ask-btn" class="btn btn-gold">Ask AI Coach</button>
       </form>
@@ -895,6 +896,18 @@ async function askAiCoach(question = "") {
   const btn = document.getElementById("coach-ask-btn");
   if (!COACH_STATE.profile) return;
 
+  // Build multi-turn conversation history (oldest -> newest) from completed turns before adding the new one
+  const historyTurns = [];
+  const completedPrior = COACH_STATE.messages
+    .filter((m) => !m.loading && m.text)
+    .slice(0, 4)
+    .reverse();
+  for (const m of completedPrior) {
+    const qText = (m.title || "").replace(/^Q:\s*/, "").trim() || "Full Coaching Breakdown";
+    historyTurns.push({ role: "user", text: qText });
+    historyTurns.push({ role: "model", text: String(m.text).slice(0, 1400) });
+  }
+
   const entry = {
     title: question ? `Q: ${question}` : "✦ FULL COACHING BREAKDOWN",
     loading: true,
@@ -916,6 +929,7 @@ async function askAiCoach(question = "") {
         target_type: COACH_STATE.type,
         tag: COACH_STATE.profile.tag,
         question,
+        history: historyTurns,
       }),
     });
     entry.loading = false;
