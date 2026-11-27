@@ -247,6 +247,26 @@ window.BV = (() => {
     document.getElementById("bv-nav-profile-btn").addEventListener("click", openProfileSettingsModal);
   }
 
+  const CANONICAL_NAV = [
+    { href: "/home/", label: "Home" },
+    { href: "/drafting/", label: "Drafting" },
+    { href: "/tierlist/", label: "Tier List" },
+    { href: "/counters/", label: "Counter Picker" },
+    { href: "/training/", label: "Personal Training" },
+    { href: "/guides/", label: "Match Guides" },
+    { href: "/lookup/", label: "Player/Clan Lookup" },
+  ];
+
+  function syncGlobalNavLinks() {
+    const wrap = document.querySelector(".site-nav .nav-links");
+    if (!wrap) return;
+    const path = (window.location.pathname || "/").toLowerCase();
+    wrap.innerHTML = CANONICAL_NAV.map((item) => {
+      const isActive = path.startsWith(item.href) || (item.href === "/home/" && path === "/");
+      return `<a href="${item.href}" class="nav-link${isActive ? " active" : ""}"${isActive ? ' aria-current="page"' : ""}>${item.label}</a>`;
+    }).join("");
+  }
+
   function centerActiveNavLinkOnMobile() {
     if (window.innerWidth > 920) return;
     const active = document.querySelector(".nav-links .nav-link.active");
@@ -442,10 +462,12 @@ window.BV = (() => {
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
+      syncGlobalNavLinks();
       renderGlobalNavAuth();
       centerActiveNavLinkOnMobile();
     });
   } else {
+    syncGlobalNavLinks();
     renderGlobalNavAuth();
     centerActiveNavLinkOnMobile();
   }
