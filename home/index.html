@@ -302,7 +302,6 @@
           ]);
 
           const firstPicks = (draftRes.recommendations || []).slice(0, 3);
-          const topBans = (draftRes.recommended_bans || []).slice(0, 4);
           const sAndA = [
             ...((tierRes.tiers && tierRes.tiers.S) || []),
             ...((tierRes.tiers && tierRes.tiers.A) || []),
@@ -325,22 +324,6 @@
                 )
                 .join("")
             : `<div class="muted-tag">Not enough map data yet.</div>`;
-
-          const bansHtml = topBans.length
-            ? topBans
-                .map(
-                  (b) => `
-                    <div class="rec-ban-chip" style="cursor:default;">
-                      <img src="${BV.resolvePortraitUrl(b.portrait, b.brawler_id)}" alt="${BV.esc(b.brawler)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.brawler_id}.png'" />
-                      <div class="rbc-info">
-                        <strong>${BV.esc(b.brawler)}</strong>
-                        <span>${b.map_win_rate}% WR${b.pick_rate ? ` • ${b.pick_rate}% PR` : ""}</span>
-                      </div>
-                    </div>
-                  `
-                )
-                .join("")
-            : `<div class="muted-tag">No ban threats available.</div>`;
 
           let myLv11Html = `<div class="muted-tag">Connect your Brawl Stars #TAG on Home to highlight which of <strong>your Level 11 brawlers</strong> dominate ${BV.esc(mapName)}.</div>`;
           if (connectedProfile && Array.isArray(connectedProfile.power11_brawlers)) {
@@ -394,12 +377,8 @@
           bodyEl.innerHTML = `
             ${compBlock}
             <div style="margin-bottom:14px;">
-              <div class="rot-comp-label" style="margin-bottom:6px;">🥇 TOP 3 SAFE FIRST PICKS</div>
+              <div class="rot-comp-label" style="margin-bottom:6px;">🥇 TOP 3 BEST PICKS FOR THIS MAP</div>
               <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">${firstHtml}</div>
-            </div>
-            <div style="margin-bottom:14px;">
-              <div class="rot-comp-label" style="margin-bottom:6px;">🚫 TOP MUST-BAN THREATS</div>
-              <div class="rec-bans-list">${bansHtml}</div>
             </div>
             <div style="margin-bottom:16px;">
               <div class="rot-comp-label" style="margin-bottom:6px;">⚡ YOUR BEST LEVEL 11 BRAWLERS HERE</div>
