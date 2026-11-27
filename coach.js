@@ -254,7 +254,22 @@ function formatCoachMarkdown(raw) {
   let inList = false;
 
   const inlineFmt = (s) =>
-    s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
+    s
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label, rawUrl) => {
+        const url = rawUrl.replace(/&amp;/g, "&");
+        const isYt = /^https:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(url);
+        const isLocal = /^\/[a-zA-Z0-9_\-\/?=&%#.]*$/.test(url);
+        if (isYt) {
+          return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="coach-link-yt">▶ ${label}</a>`;
+        }
+        if (isLocal) {
+          return `<a href="${url}" class="coach-link-site">↗ ${label}</a>`;
+        }
+        return label;
+      })
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
 
   for (const line of lines) {
     const t = line.trim();

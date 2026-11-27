@@ -4306,3 +4306,32 @@ button.nav-user-pill:hover {
   color: var(--muted);
   flex-shrink: 0;
 }
+
+.coach-link-yt,
+.coach-link-site {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12.5px;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.coach-link-yt {
+  color: #ff6b81;
+  background: rgba(255, 59, 107, 0.12);
+  border: 1px solid rgba(255, 59, 107, 0.35);
+}
+.coach-link-yt:hover {
+  background: rgba(255, 59, 107, 0.22);
+}
+.coach-link-site {
+  color: var(--gold);
+  background: rgba(255, 201, 40, 0.12);
+  border: 1px solid rgba(255, 201, 40, 0.35);
+}
+.coach-link-site:hover {
+  background: rgba(255, 201, 40, 0.22);
+}
