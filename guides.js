@@ -19,6 +19,9 @@ const sb = (window.BV && window.BV.sb) || (
 const GUIDES_STATE = {
   user: null,
   profile: null,
+  isBackendAdmin: false,
+  isBanned: false,
+  banReason: "",
   guides: [],
   guidesLoaded: false,
   myVotes: new Set(),
@@ -29,6 +32,97 @@ const GUIDES_STATE = {
   brawlerFilter: "",
   search: "",
 };
+
+async function verifyAdminAndBanStatus() {
+  GUIDES_STATE.isBackendAdmin = false;
+  GUIDES_STATE.isBanned = false;
+  GUIDES_STATE.banReason = "";
+  const banner = document.getElementById("guides-ban-banner");
+  if (banner) banner.classList.add("hidden");
+
+  if (!GUIDES_STATE.user) return;
+  try {
+    const [adm, ban] = await Promise.all([
+      BV.apiFetch("/api/v1/admin/status").catch(() => ({ is_admin: false })),
+      BV.apiFetch("/api/v1/bans/check").catch(() => ({ banned: false })),
+    ]);
+    GUIDES_STATE.isBackendAdmin = Boolean(adm && adm.is_admin);
+    GUIDES_STATE.isBanned = Boolean(ban && ban.banned);
+    GUIDES_STATE.banReason = ban?.reason || "";
+    if (GUIDES_STATE.isBanned && banner) {
+      banner.innerHTML = `<strong>Account Restricted:</strong> You are banned from publishing guides or using Vault AI. Reason: ${BV.esc(GUIDES_STATE.banReason || "Violation of community rules")}`;
+      banner.classList.remove("hidden");
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function openAdminBansModal() {
+  if (!GUIDES_STATE.isBackendAdmin) return;
+  const modal = document.getElementById("admin-bans-modal");
+  const body = document.getElementById("admin-bans-body");
+  if (!modal || !body) return;
+  modal.classList.remove("hidden");
+  body.innerHTML = `<div class="muted-tag">Loading banned users from backend...</div>`;
+  try {
+    const res = await BV.apiFetch("/api/v1/admin/bans");
+    const bans = res.bans || [];
+    if (!bans.length) {
+      body.innerHTML = `<div class="empty-card">No users are currently banned.</div>`;
+      return;
+    }
+    body.innerHTML = bans
+      .map(
+        (b) => `
+          <div class="quiz-pick-chip" style="justify-content:space-between;">
+            <div style="min-width:0;">
+              <strong>${BV.esc(b.display_name || "User")} <span class="muted-tag">(${BV.esc(b.user_id.slice(0, 8))}…)</span></strong>
+              <span>Reason: ${BV.esc(b.reason || "N/A")}</span>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm admin-unban-btn" data-unban-uid="${BV.esc(b.user_id)}">Unban</button>
+          </div>
+        `
+      )
+      .join("");
+    body.querySelectorAll(".admin-unban-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await BV.apiFetch("/api/v1/admin/unban", {
+            method: "POST",
+            body: JSON.stringify({ user_id: btn.dataset.unbanUid }),
+          });
+          openAdminBansModal();
+        } catch (err) {
+          alert(err.message || "Could not unban user.");
+          btn.disabled = false;
+        }
+      });
+    });
+  } catch (err) {
+    body.innerHTML = `<div class="empty-card error-card">${BV.esc(err.message || "Admin access denied.")}</div>`;
+  }
+}
+
+async function adminBanAuthor(authorId, authorName) {
+  if (!GUIDES_STATE.isBackendAdmin || !authorId) return;
+  const reason = window.prompt(`Ban ${authorName || "this user"} from BrawlVault?\nEnter ban reason:`, "Spam / rule violation");
+  if (reason === null) return;
+  try {
+    await BV.apiFetch("/api/v1/admin/ban", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: authorId,
+        display_name: authorName || "",
+        reason: reason.trim() || "Violation of community rules",
+      }),
+    });
+    alert(`✓ Banned ${authorName || authorId} (enforced on backend).`);
+  } catch (err) {
+    alert(err.message || "Ban failed (admin verification required).");
+  }
+}
 
 // ============================================================================
 // Content Moderation (Blocks illegal/scam/XSS/links & censors/blocks profanity)
@@ -147,18 +241,20 @@ function renderAuthBar() {
   mineBtn.classList.remove("hidden");
   const name = GUIDES_STATE.profile?.display_name || GUIDES_STATE.user.user_metadata?.full_name || "Player";
   const avatar = GUIDES_STATE.profile?.avatar_url || GUIDES_STATE.user.user_metadata?.avatar_url || "";
-  const adminBadge = GUIDES_STATE.profile?.is_admin ? `<span class="lv11-chip">ADMIN</span>` : "";
+  const adminBadge = GUIDES_STATE.isBackendAdmin ? `<span class="lv11-chip">ADMIN</span>` : "";
 
   bar.innerHTML = `
     <div class="auth-user-pill">
       ${avatar ? `<img src="${BV.esc(avatar)}" alt="" class="auth-avatar" referrerpolicy="no-referrer" />` : ""}
       <span class="auth-user-name">${BV.esc(name)} ${adminBadge}</span>
     </div>
-    <button type="button" id="open-write-btn" class="btn btn-gold btn-sm">+ Write Guide</button>
+    ${GUIDES_STATE.isBackendAdmin ? `<button type="button" id="open-admin-bans-btn" class="btn btn-danger btn-sm">🛡 Admin Bans</button>` : ""}
+    ${GUIDES_STATE.isBanned ? "" : `<button type="button" id="open-write-btn" class="btn btn-gold btn-sm">+ Write Guide</button>`}
     <button type="button" id="signout-btn" class="btn btn-ghost btn-sm">Sign Out</button>
   `;
 
-  document.getElementById("open-write-btn").addEventListener("click", openWriteModal);
+  document.getElementById("open-write-btn")?.addEventListener("click", openWriteModal);
+  document.getElementById("open-admin-bans-btn")?.addEventListener("click", openAdminBansModal);
   document.getElementById("signout-btn").addEventListener("click", async () => {
     await sb.auth.signOut();
     GUIDES_STATE.user = null;
@@ -317,11 +413,15 @@ function openReadModal(guide) {
   const content = document.getElementById("read-modal-content");
   const canDelete =
     GUIDES_STATE.user &&
-    (GUIDES_STATE.user.id === guide.author_id || GUIDES_STATE.profile?.is_admin);
+    (GUIDES_STATE.user.id === guide.author_id || GUIDES_STATE.isBackendAdmin);
+  const canBanAuthor =
+    GUIDES_STATE.isBackendAdmin &&
+    GUIDES_STATE.user &&
+    guide.author_id &&
+    guide.author_id !== GUIDES_STATE.user.id;
   const voted = GUIDES_STATE.myVotes.has(guide.id);
-  const portrait = guide.brawler_id
-    ? `https://cdn.brawlify.com/brawlers/borderless/${guide.brawler_id}.png`
-    : "";
+  const portrait = guide.brawler_id ? BV.resolvePortraitUrl("", guide.brawler_id) : "";
+  const mapImg = guide.map && guide.map !== "Any Map" ? BV.resolveMapUrl(guide.map) : "";
 
   const buildParts = [];
   if (guide.star_power) buildParts.push(`<div class="build-row"><span class="build-key">★ Star Power</span><span class="build-val">${BV.esc(censorDisplay(guide.star_power))}</span></div>`);
@@ -330,8 +430,8 @@ function openReadModal(guide) {
 
   content.innerHTML = `
     <div class="modal-head">
-      ${portrait ? `<img src="${portrait}" alt="${BV.esc(guide.brawler)}" onerror="this.style.display='none'" />` : ""}
-      <div>
+      ${portrait ? `<img src="${portrait}" alt="${BV.esc(guide.brawler)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${guide.brawler_id}.png'" />` : ""}
+      <div style="flex:1;min-width:0;">
         <div class="guide-pills-row">
           <span class="stat-chip chip-pick">${BV.esc(guide.brawler)}</span>
           <span class="stat-chip">${BV.esc(guide.mode === "all" ? "All Modes" : BV.formatMode(guide.mode))}</span>
@@ -343,6 +443,7 @@ function openReadModal(guide) {
           <span>by <strong>${BV.esc(censorDisplay(guide.author_name))}</strong> • ${timeAgo(guide.created_at)}</span>
         </div>
       </div>
+      ${mapImg ? `<img src="${mapImg}" alt="${BV.esc(guide.map)}" class="guide-modal-map" onerror="this.style.display='none'" />` : ""}
     </div>
 
     ${buildParts.length ? `<div class="build-box"><div class="build-title">RECOMMENDED BUILD</div>${buildParts.join("")}</div>` : ""}
@@ -362,7 +463,10 @@ function openReadModal(guide) {
       <button type="button" id="modal-upvote-btn" class="btn ${voted ? "btn-gold" : "btn-ghost"} btn-sm">
         ▲ ${voted ? "Upvoted" : "Upvote"} (${guide.upvotes_count || 0})
       </button>
-      ${canDelete ? `<button type="button" id="modal-delete-btn" class="btn btn-danger btn-sm">Delete Guide</button>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${canBanAuthor ? `<button type="button" id="modal-ban-btn" class="btn btn-danger btn-sm">🛡 Ban User</button>` : ""}
+        ${canDelete ? `<button type="button" id="modal-delete-btn" class="btn btn-ghost btn-sm" style="color:var(--red);">Delete Guide</button>` : ""}
+      </div>
     </div>
   `;
 
@@ -374,6 +478,10 @@ function openReadModal(guide) {
   const delBtn = document.getElementById("modal-delete-btn");
   if (delBtn) {
     delBtn.addEventListener("click", () => deleteGuide(guide.id));
+  }
+  const banBtn = document.getElementById("modal-ban-btn");
+  if (banBtn) {
+    banBtn.addEventListener("click", () => adminBanAuthor(guide.author_id, guide.author_name));
   }
 
   modal.classList.remove("hidden");
@@ -397,18 +505,17 @@ function renderGuides() {
   grid.innerHTML = "";
   list.forEach((g) => {
     const voted = GUIDES_STATE.myVotes.has(g.id);
-    const portrait = g.brawler_id
-      ? `https://cdn.brawlify.com/brawlers/borderless/${g.brawler_id}.png`
-      : "";
+    const portrait = g.brawler_id ? BV.resolvePortraitUrl("", g.brawler_id) : "";
+    const mapThumb = g.map && g.map !== "Any Map" ? BV.resolveMapUrl(g.map) : "";
     const cleanBody = censorDisplay(g.body);
-    const preview = cleanBody.length > 185 ? `${cleanBody.slice(0, 185).trim()}…` : cleanBody;
+    const preview = cleanBody.length > 175 ? `${cleanBody.slice(0, 175).trim()}…` : cleanBody;
 
     const card = document.createElement("article");
-    card.className = "guide-card";
+    card.className = "guide-card guide-card-modern";
     card.innerHTML = `
       <div class="guide-card-top">
         <div class="guide-card-brawler">
-          ${portrait ? `<img src="${portrait}" alt="${BV.esc(g.brawler)}" loading="lazy" onerror="this.style.display='none'" />` : ""}
+          ${portrait ? `<img src="${portrait}" alt="${BV.esc(g.brawler)}" loading="lazy" decoding="async" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${g.brawler_id}.png'" />` : ""}
           <div class="guide-card-titles">
             <div class="guide-pills-row">
               <span class="stat-chip chip-pick">${BV.esc(g.brawler)}</span>
@@ -417,6 +524,7 @@ function renderGuides() {
             </div>
             <h3 class="guide-card-title">${BV.esc(censorDisplay(g.title))}</h3>
           </div>
+          ${mapThumb ? `<img src="${mapThumb}" alt="${BV.esc(g.map)}" class="guide-card-map-thumb" loading="lazy" decoding="async" onerror="this.style.display='none'" />` : ""}
         </div>
         <button type="button" class="upvote-btn ${voted ? "voted" : ""}" data-id="${BV.esc(g.id)}">
           <span>▲</span>
@@ -478,6 +586,10 @@ function openWriteModal() {
     signInWithGoogle();
     return;
   }
+  if (GUIDES_STATE.isBanned) {
+    alert(`Your account is banned from publishing guides.\nReason: ${GUIDES_STATE.banReason || "Policy violation"}`);
+    return;
+  }
   document.getElementById("gf-error").classList.add("hidden");
   document.getElementById("write-guide-modal").classList.remove("hidden");
 }
@@ -489,6 +601,12 @@ async function handlePublishGuide(e) {
   const errEl = document.getElementById("gf-error");
   const submitBtn = document.getElementById("gf-submit-btn");
   errEl.classList.add("hidden");
+
+  if (GUIDES_STATE.isBanned) {
+    errEl.textContent = `Account banned: ${GUIDES_STATE.banReason || "Policy violation"}. You cannot publish guides.`;
+    errEl.classList.remove("hidden");
+    return;
+  }
 
   const brawlerName = document.getElementById("gf-brawler").value;
   const bObj = GUIDES_STATE.brawlers.find((b) => b.name === brawlerName);
@@ -595,11 +713,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Modals close bindings
   const writeModal = document.getElementById("write-guide-modal");
   const readModal = document.getElementById("read-guide-modal");
+  const adminBansModal = document.getElementById("admin-bans-modal");
   document.getElementById("write-modal-close").addEventListener("click", () => writeModal.classList.add("hidden"));
   document.getElementById("gf-cancel-btn").addEventListener("click", () => writeModal.classList.add("hidden"));
   document.getElementById("read-modal-close").addEventListener("click", () => readModal.classList.add("hidden"));
+  document.getElementById("admin-bans-close")?.addEventListener("click", () => adminBansModal?.classList.add("hidden"));
   writeModal.addEventListener("click", (e) => { if (e.target === writeModal) writeModal.classList.add("hidden"); });
   readModal.addEventListener("click", (e) => { if (e.target === readModal) readModal.classList.add("hidden"); });
+  adminBansModal?.addEventListener("click", (e) => { if (e.target === adminBansModal) adminBansModal.classList.add("hidden"); });
 
   // Form bindings
   document.getElementById("gf-mode").addEventListener("change", populateFormMaps);
@@ -645,7 +766,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       GUIDES_STATE.user = sessionData?.session?.user || null;
       if (GUIDES_STATE.user) {
         GUIDES_STATE.profile = await ensureUserProfile(GUIDES_STATE.user);
-        await fetchMyVotes();
+        await Promise.all([fetchMyVotes(), verifyAdminAndBanStatus()]);
       }
       renderAuthBar();
       if (GUIDES_STATE.guidesLoaded) renderGuides();
@@ -657,10 +778,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       GUIDES_STATE.user = session?.user || null;
       if (GUIDES_STATE.user) {
         GUIDES_STATE.profile = await ensureUserProfile(GUIDES_STATE.user);
-        await fetchMyVotes();
+        await Promise.all([fetchMyVotes(), verifyAdminAndBanStatus()]);
       } else {
         GUIDES_STATE.profile = null;
+        GUIDES_STATE.isBackendAdmin = false;
+        GUIDES_STATE.isBanned = false;
+        GUIDES_STATE.banReason = "";
         GUIDES_STATE.myVotes.clear();
+        const banBanner = document.getElementById("guides-ban-banner");
+        if (banBanner) banBanner.classList.add("hidden");
       }
       renderAuthBar();
       if (GUIDES_STATE.guidesLoaded) renderGuides();

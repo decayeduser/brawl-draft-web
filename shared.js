@@ -20,6 +20,7 @@ window.BV = (() => {
 
   let currentUser = null;
   let currentProfile = null;
+  let currentAccessToken = "";
   const authListeners = new Set();
 
   function normalizeTag(raw) {
@@ -437,11 +438,13 @@ window.BV = (() => {
     try {
       const { data } = await sb.auth.getSession();
       currentUser = data?.session?.user || null;
+      currentAccessToken = data?.session?.access_token || "";
       if (currentUser) {
         currentProfile = await ensureCloudProfile(currentUser);
       }
       sb.auth.onAuthStateChange(async (_event, session) => {
         const nextUser = session?.user || null;
+        currentAccessToken = session?.access_token || "";
         const changed = (nextUser?.id || null) !== (currentUser?.id || null);
         currentUser = nextUser;
         if (currentUser) {
@@ -480,6 +483,9 @@ window.BV = (() => {
     };
     if (currentUser && currentUser.id) {
       baseHeaders["X-User-Id"] = currentUser.id;
+    }
+    if (currentAccessToken) {
+      baseHeaders["X-Supabase-Token"] = currentAccessToken;
     }
     const headers = Object.assign(baseHeaders, options.headers || {});
 

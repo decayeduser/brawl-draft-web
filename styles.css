@@ -4850,3 +4850,32 @@ button.nav-user-pill:hover {
     align-self: center;
   }
 }
+
+
+/* ==================== REWORKED MATCH GUIDES UI ==================== */
+.guide-card-modern {
+  border-radius: 14px;
+  transition: border-color 0.16s, transform 0.12s;
+}
+.guide-card-modern:hover {
+  border-color: rgba(255, 201, 40, 0.42);
+}
+.guide-card-map-thumb {
+  width: 44px;
+  height: 58px;
+  object-fit: contain;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: #09090b;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.guide-modal-map {
+  width: 72px;
+  height: 94px;
+  object-fit: contain;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: #09090b;
+  flex-shrink: 0;
+}

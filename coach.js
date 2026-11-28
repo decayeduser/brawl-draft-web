@@ -951,23 +951,26 @@ function renderCoachWorkspace() {
   if (!ws || !p) return;
 
   const isClub = COACH_STATE.type === "club";
-  const diff50k = (isClub ? p.avg_trophies : p.trophies) - 50000;
-  const diffTxt = `${diff50k >= 0 ? "+" : "-"}${Math.abs(diff50k).toLocaleString()} 🏆`;
+  const bm = p.community_benchmark || {};
+  const commMed = bm.median_trophies || 25000;
+  const commDiff = (isClub ? p.avg_trophies : p.trophies) - commMed;
+  const diffTxt = `${commDiff >= 0 ? "+" : "-"}${Math.abs(commDiff).toLocaleString()} 🏆`;
+  const commLabel = bm.sample_players ? `vs Community (${commMed.toLocaleString()})` : "vs Community Avg";
   const bs = p.battle_stats || {};
 
   const kpis = isClub
     ? `
       <div class="stat-tile"><span>Avg Member 🏆</span><strong class="gold-text">🏆 ${p.avg_trophies.toLocaleString()}</strong></div>
-      <div class="stat-tile"><span>vs 50k Avg</span><strong class="${diff50k >= 0 ? "green-text" : "red-text"}">${diffTxt}</strong></div>
+      <div class="stat-tile"><span>${commLabel}</span><strong class="${commDiff >= 0 ? "green-text" : "red-text"}">${diffTxt}</strong></div>
       <div class="stat-tile"><span>Members</span><strong>${p.member_count} / 30</strong></div>
-      <div class="stat-tile"><span>Strict Rating</span><strong class="gold-text">${p.rating?.score ?? "--"} / 10</strong></div>
+      <div class="stat-tile"><span>Vault Score</span><strong class="gold-text">${p.rating?.score ?? "--"} / 10</strong></div>
     `
     : `
       <div class="stat-tile"><span>Trophies</span><strong class="gold-text">🏆 ${p.trophies.toLocaleString()}</strong></div>
-      <div class="stat-tile"><span>vs 50k Avg</span><strong class="${diff50k >= 0 ? "green-text" : "red-text"}">${diffTxt}</strong></div>
+      <div class="stat-tile"><span>${commLabel}</span><strong class="${commDiff >= 0 ? "green-text" : "red-text"}">${diffTxt}</strong></div>
       <div class="stat-tile"><span>Recent WR</span><strong class="${(bs.win_rate ?? 50) >= 55 ? "green-text" : "red-text"}">${bs.win_rate != null ? `${bs.win_rate}%` : "N/A"}</strong></div>
-      <div class="stat-tile"><span>Level 11s</span><strong class="green-text">${p.power11_count} / ${p.brawlers_owned}</strong></div>
-      <div class="stat-tile"><span>Strict Rating</span><strong class="gold-text">${p.rating?.score ?? "--"} / 10</strong></div>
+      <div class="stat-tile"><span>Level 11s${bm.lv11_top_pct != null ? ` (Top ${bm.lv11_top_pct}%)` : ""}</span><strong class="green-text">${p.power11_count} / ${p.brawlers_owned}</strong></div>
+      <div class="stat-tile"><span>Vault Score</span><strong class="gold-text">${p.rating?.score ?? "--"} / 10</strong></div>
     `;
 
   const lookupHref = isClub

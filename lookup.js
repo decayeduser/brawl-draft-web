@@ -2377,6 +2377,16 @@ function renderPlayerProfile(p) {
       ? `<button type="button" id="battle-vs-me-btn" class="btn btn-blue btn-sm">⚔ Battle vs Me</button>`
       : "";
 
+  const cb = p.community_benchmark;
+  const benchTrophies = cb?.median_trophies || 35000;
+  const diffBench = (p.trophies || 0) - benchTrophies;
+  const benchLbl = cb?.is_live
+    ? `vs Community (${benchTrophies.toLocaleString()})`
+    : `vs Community Avg`;
+  const ratingHeadLbl = cb?.is_live && cb?.trophy_top_pct
+    ? `COMPETITIVE RATING • TOP ${cb.trophy_top_pct}% (${cb.sample_players} PLAYERS)`
+    : `COMPETITIVE RATING`;
+
   const resultEl = document.getElementById("lookup-result");
   resultEl.innerHTML = `
     <div class="profile-hero dyn-fade">
@@ -2401,18 +2411,18 @@ function renderPlayerProfile(p) {
 
         <div class="stats-grid">
           <div class="stat-tile"><span>Trophies</span><strong class="gold-text">🏆 ${p.trophies.toLocaleString()}</strong></div>
-          <div class="stat-tile"><span>vs 50k Avg</span><strong class="${verdict.diff50k >= 0 ? "green-text" : "red-text"}">${formatSignedTrophies(verdict.diff50k)}</strong></div>
+          <div class="stat-tile"><span>${BV.esc(benchLbl)}</span><strong class="${diffBench >= 0 ? "green-text" : "red-text"}">${formatSignedTrophies(diffBench)}</strong></div>
           <div class="stat-tile"><span>Peak Trophies</span><strong>${p.highest_trophies.toLocaleString()}</strong></div>
           <div class="stat-tile"><span>3v3 Wins (${rating.share_3v3_pct}%)</span><strong>${p.victories_3v3.toLocaleString()}</strong></div>
           <div class="stat-tile"><span>Recent WR</span><strong class="${(bs.win_rate ?? 50) >= 55 ? "green-text" : "red-text"}">${bs.win_rate != null ? `${bs.win_rate}%` : "N/A"}</strong></div>
           <div class="stat-tile"><span>Star Player</span><strong class="gold-text">${bs.star_player_rate != null ? `${bs.star_player_rate}%` : "N/A"}</strong></div>
-          <div class="stat-tile"><span>Level 11s</span><strong class="green-text">${p.power11_count} / ${p.brawlers_owned}</strong></div>
+          <div class="stat-tile"><span>Level 11s${cb?.lv11_top_pct ? ` (Top ${cb.lv11_top_pct}%)` : ""}</span><strong class="green-text">${p.power11_count} / ${p.brawlers_owned}</strong></div>
           <div class="stat-tile"><span>1,000+ Brawlers</span><strong>${p.max_tier_brawlers}</strong></div>
         </div>
       </div>
 
       <div class="rating-card ${scoreColorClass(rating.score)}">
-        <div class="rating-label">STRICT RATING (50K BENCHMARK)</div>
+        <div class="rating-label">${BV.esc(ratingHeadLbl)}</div>
         ${renderRatingRing(rating.score, rating.grade)}
         <div class="rating-breakdown">${breakdownHtml}</div>
       </div>

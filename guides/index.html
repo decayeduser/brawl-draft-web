@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=36" />
+  <link rel="stylesheet" href="/styles.css?v=37" />
 </head>
 <body>
   <div class="app-shell">
@@ -101,9 +101,22 @@
     </section>
 
     <!-- Guides List -->
+    <div id="guides-ban-banner" class="empty-card error-card hidden" style="margin-bottom:12px;"></div>
     <section id="guides-grid" class="guides-grid">
       <div class="empty-card">Loading community guides...</div>
     </section>
+
+    <!-- Admin Ban Management Modal (Backend-verified Admins Only) -->
+    <div id="admin-bans-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Admin Ban Manager">
+      <div class="modal-card acct-modal-card dyn-fade" style="max-width:600px;">
+        <button type="button" id="admin-bans-close" class="modal-close" aria-label="Close">✕</button>
+        <div class="verdict-eyebrow" style="margin-bottom:4px;">🛡 BACKEND-VERIFIED ADMIN ONLY</div>
+        <h2 class="brawl-title" style="font-size:20px;margin-bottom:10px;">Banned Users Manager</h2>
+        <div id="admin-bans-body" class="overview-stack">
+          <div class="muted-tag">Loading banned accounts...</div>
+        </div>
+      </div>
+    </div>
 
     <footer class="site-footer">
       <p>
@@ -214,7 +227,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/shared.js?v=34"></script>
-  <script src="/guides.js?v=24"></script>
+  <script src="/shared.js?v=35"></script>
+  <script src="/guides.js?v=25"></script>
 </body>
 </html>
