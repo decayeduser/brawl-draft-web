@@ -210,7 +210,7 @@ function renderTrainingWorkspace() {
           <div>
             <div class="verdict-eyebrow">🧠 1-ON-1 MISTAKE ANALYSIS • POWERED BY VAULT AI</div>
             <h3 class="brawl-title coaching-heading">Vault AI Sparring Review</h3>
-            <p class="coaching-sub">Get personalized 1-on-1 feedback on the exact draft mistakes you miss most often in Draft IQ Trainer.</p>
+            <p class="coaching-sub">Get personalized 1-on-1 feedback on the exact draft mistakes you miss most often in Draft Trainer.</p>
           </div>
           <button type="button" id="run-sparring-btn" class="btn btn-gold" ${TR_STATE.sparringLoading ? "disabled" : ""}>
             ${TR_STATE.sparringLoading ? "Analyzing..." : "✦ Analyze My Mistakes"}
@@ -235,7 +235,7 @@ function renderTrainingWorkspace() {
                 : `<div class="ai-coach-output"><div class="muted-tag">${
                     TR_STATE.stats.total > 0
                       ? `You have <strong>${TR_STATE.stats.total}</strong> recorded drills (${missed.length} recent misses). Click <strong>✦ Analyze My Mistakes</strong> above for your 1-on-1 Vault AI breakdown.`
-                      : `Play a few rounds in <strong>🎯 Draft IQ Trainer</strong> first, then come back here for a personalized Vault AI breakdown of your draft habits!`
+                      : `Play a few rounds in <strong>🎯 Draft Trainer</strong> first, then come back here for a personalized Vault AI breakdown of your draft habits!`
                   }</div></div>`
         }
 
@@ -375,25 +375,39 @@ function renderTrainingWorkspace() {
         <button type="button" id="quiz-skip-btn" class="btn btn-ghost btn-sm">Skip ↻</button>
       </div>
 
-      <div class="quiz-teams-grid">
-        <div class="quiz-team-box quiz-blue">
-          <div class="team-header"><span>YOUR TEAM (BLUE)</span><span class="pick-order-tag">${q.is_first_pick_team ? "1ST PICK SIDE" : "2ND PICK SIDE"}</span></div>
-          <div class="quiz-picks-col">
-            ${(q.ally_picks || []).map((a) => renderTeamPill(a, "qp-blue")).join("")}
-            <div class="quiz-pick-chip qp-mystery">
-              <div class="qp-qmark">${TR_STATE.answered ? "✓" : "?"}</div>
-              <div>
-                <strong>${TR_STATE.answered ? BV.esc(q.correct_brawler) : `YOUR PICK #${pickSlot}`}</strong>
-                <span>${TR_STATE.answered ? "Verified Pro Winner" : BV.esc(phaseLabel)}</span>
+      <div class="quiz-board-with-map">
+        <div class="quiz-map-box">
+          <img
+            src="${BV.resolveMapUrl(q.map)}"
+            alt="${BV.esc(q.map)} map layout"
+            class="quiz-map-img"
+            loading="lazy"
+            decoding="async"
+            onerror="this.parentElement.style.display='none'"
+          />
+          <span class="quiz-map-caption">${BV.esc(q.map)}</span>
+        </div>
+
+        <div class="quiz-teams-grid">
+          <div class="quiz-team-box quiz-blue">
+            <div class="team-header"><span>YOUR TEAM (BLUE)</span><span class="pick-order-tag">${q.is_first_pick_team ? "1ST PICK SIDE" : "2ND PICK SIDE"}</span></div>
+            <div class="quiz-picks-col">
+              ${(q.ally_picks || []).map((a) => renderTeamPill(a, "qp-blue")).join("")}
+              <div class="quiz-pick-chip qp-mystery">
+                <div class="qp-qmark">${TR_STATE.answered ? "✓" : "?"}</div>
+                <div>
+                  <strong>${TR_STATE.answered ? BV.esc(q.correct_brawler) : `YOUR PICK #${pickSlot}`}</strong>
+                  <span>${TR_STATE.answered ? "Verified Pro Winner" : BV.esc(phaseLabel)}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="quiz-team-box quiz-red">
-          <div class="team-header"><span>ENEMY TEAM (RED)</span><span class="pick-order-tag">${(q.enemy_picks || []).length} LOCKED</span></div>
-          <div class="quiz-picks-col">
-            ${enemyPicksHtml}
+          <div class="quiz-team-box quiz-red">
+            <div class="team-header"><span>ENEMY TEAM (RED)</span><span class="pick-order-tag">${(q.enemy_picks || []).length} LOCKED</span></div>
+            <div class="quiz-picks-col">
+              ${enemyPicksHtml}
+            </div>
           </div>
         </div>
       </div>

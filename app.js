@@ -825,7 +825,33 @@ function setMobileView(view) {
   });
 }
 
+function updateDraftMapPreview() {
+  const btn = document.getElementById("draft-map-preview-btn");
+  const img = document.getElementById("draft-map-thumb");
+  if (!btn || !img || !STATE.map) return;
+  const url = BV.resolveMapUrl(STATE.map);
+  if (!url) {
+    btn.classList.add("hidden");
+    return;
+  }
+  img.onload = () => btn.classList.remove("hidden");
+  img.onerror = () => btn.classList.add("hidden");
+  img.src = url;
+  img.alt = `${STATE.map} map preview`;
+}
+
+function openMapZoomModal() {
+  const modal = document.getElementById("draft-review-modal");
+  const titleEl = document.getElementById("draft-review-title");
+  const bodyEl = document.getElementById("draft-review-body");
+  if (!modal || !bodyEl || !STATE.map) return;
+  titleEl.textContent = `${STATE.map} • ${BV.formatMode(STATE.mode)}`;
+  bodyEl.innerHTML = `<div style="text-align:center;"><img src="${BV.resolveMapUrl(STATE.map)}" alt="${BV.esc(STATE.map)}" style="max-width:100%;max-height:66vh;border-radius:12px;border:1px solid var(--border);" /></div>`;
+  modal.classList.remove("hidden");
+}
+
 function renderAll() {
+  updateDraftMapPreview();
   renderTimelineAndBans();
   renderTeamPanels();
   renderBrawlerGrid();
@@ -940,6 +966,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const shareBtn = document.getElementById("share-draft-btn");
   if (shareBtn) shareBtn.addEventListener("click", copyShareDraftLink);
+
+  const mapThumbBtn = document.getElementById("draft-map-preview-btn");
+  if (mapThumbBtn) mapThumbBtn.addEventListener("click", openMapZoomModal);
 
   const reviewModal = document.getElementById("draft-review-modal");
   const reviewClose = document.getElementById("draft-review-close");

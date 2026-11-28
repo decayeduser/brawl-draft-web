@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=34" />
+  <link rel="stylesheet" href="/styles.css?v=35" />
 </head>
 <body>
   <div class="app-shell">
@@ -204,7 +204,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/shared.js?v=32"></script>
+  <script src="/shared.js?v=33"></script>
   <script>
     function parseScTime(raw) {
       if (!raw) return null;
@@ -393,11 +393,17 @@
               `
               : "";
 
+          const mapImgUrl = BV.resolveMapUrl(mapName);
           bodyEl.innerHTML = `
-            ${compBlock}
-            <div style="margin-bottom:14px;">
-              <div class="rot-comp-label" style="margin-bottom:6px;">🥇 TOP 3 BEST PICKS FOR THIS MAP</div>
-              <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">${firstHtml}</div>
+            <div class="cs-top-layout">
+              ${mapImgUrl ? `<img src="${mapImgUrl}" alt="${BV.esc(mapName)}" class="cs-map-img" onerror="this.style.display='none'" />` : ""}
+              <div style="flex:1;min-width:0;">
+                ${compBlock}
+                <div style="margin-bottom:14px;">
+                  <div class="rot-comp-label" style="margin-bottom:6px;">🥇 TOP 3 BEST PICKS FOR THIS MAP</div>
+                  <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">${firstHtml}</div>
+                </div>
+              </div>
             </div>
             <div style="margin-bottom:16px;">
               <div class="rot-comp-label" style="margin-bottom:6px;">⚡ YOUR BEST LEVEL 11 BRAWLERS HERE</div>

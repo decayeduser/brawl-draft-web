@@ -531,15 +531,29 @@ window.BV = (() => {
   }
 
   function resolvePortraitUrl(portraitPath, brawlerId) {
-    const cdnUrl = `https://cdn.brawlify.com/brawlers/borderless/${brawlerId}.png`;
-    if (!portraitPath) return cdnUrl;
-    if (portraitPath.startsWith("http://") || portraitPath.startsWith("https://")) {
+    if (brawlerId) {
+      return `/assets/brawlers/${brawlerId}.png`;
+    }
+    if (portraitPath && (portraitPath.startsWith("http://") || portraitPath.startsWith("https://") || portraitPath.startsWith("/assets/"))) {
       return portraitPath;
     }
-    if (CLEAN_BASE_URL && portraitPath.startsWith("/")) {
+    if (CLEAN_BASE_URL && portraitPath && portraitPath.startsWith("/")) {
       return `${CLEAN_BASE_URL}${portraitPath}`;
     }
-    return cdnUrl;
+    return "";
+  }
+
+  function slugifyMap(mapName) {
+    return String(mapName || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function resolveMapUrl(mapName) {
+    const slug = slugifyMap(mapName);
+    return slug ? `/assets/maps/${slug}.png` : "";
   }
 
   function formatMode(mode) {
@@ -579,6 +593,7 @@ window.BV = (() => {
     getCachedProfile,
     setCachedProfile,
     resolvePortraitUrl,
+    resolveMapUrl,
     formatMode,
     esc,
   };
