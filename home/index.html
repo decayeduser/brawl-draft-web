@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=33" />
+  <link rel="stylesheet" href="/styles.css?v=34" />
 </head>
 <body>
   <div class="app-shell">
@@ -46,20 +46,35 @@
       </div>
     </nav>
 
-    <!-- Hero -->
-    <section class="home-hero">
-      <div class="home-hero-badge">
-        <span id="home-status-dot" class="dot online"></span>
-        <span id="home-status-text">Connecting to BrawlVault Live AI Engine...</span>
+    <!-- Upgraded 2-Column Ranked Command Center Hero -->
+    <section class="home-cmd-hero">
+      <div class="home-cmd-left">
+        <div class="home-hero-badge">
+          <span id="home-status-dot" class="dot online"></span>
+          <span id="home-status-text">Connecting to BrawlVault Live AI Engine...</span>
+        </div>
+        <h1 class="brawl-title home-cmd-title">WIN MORE <span class="gold-text">RANKED</span> GAMES</h1>
+        <p class="home-cmd-sub">
+          Real-time class-balanced Drafting AI, Vault AI Ranked Coach, Pro Draft Quiz, and live Counter Picker — trained 24/7 on real pro matches.
+        </p>
+        <div class="home-cmd-actions">
+          <a href="/drafting/" class="btn btn-gold home-cta">⚔ Launch Drafting AI →</a>
+          <a href="/training/" class="btn btn-blue home-cta">✦ Personal Training</a>
+          <a href="/counters/" class="btn btn-ghost home-cta">🛡 Counter Picker</a>
+        </div>
+        <div class="home-kpi-strip">
+          <div class="home-kpi-pill"><strong id="kpi-matches">--</strong><span>Pro Matches</span></div>
+          <div class="home-kpi-pill"><strong id="kpi-pros">--</strong><span>Tracked Pros</span></div>
+          <div class="home-kpi-pill"><strong id="kpi-maps">--</strong><span>Live Maps</span></div>
+        </div>
       </div>
-      <h1 class="brawl-title home-title">BRAWLVAULT</h1>
-      <p class="home-subtitle">
-        Live Brawl Stars Ranked Drafting AI, Power 11 Upgrade Guide, Pro Meta Tier List, and Player/Club Ratings — powered 24/7 by live leaderboard data.
-      </p>
 
-      <!-- Connect Your Tag Once (Shared Across All Tools) -->
-      <div class="home-tag-box">
-        <div class="home-tag-label">CONNECT YOUR BRAWL STARS ID (AUTO-SYNCED ACROSS ALL TABS)</div>
+      <div class="home-cmd-card">
+        <div class="verdict-eyebrow" style="margin-bottom:4px;">⚡ YOUR RANKED COMMAND CARD</div>
+        <h2 class="brawl-title" style="font-size:18px;margin-bottom:8px;">Connect Your Brawl Stars #TAG</h2>
+        <p class="muted-tag" style="margin-bottom:10px;line-height:1.45;">
+          Syncs across Drafting (Lv 11 filter), Personal Training, Upgrade Guide, and Map Cheat-Sheets.
+        </p>
         <form id="home-tag-form" class="tag-input-row">
           <input
             type="text"
@@ -70,16 +85,15 @@
             autocapitalize="characters"
             spellcheck="false"
           />
-          <button type="submit" id="home-tag-btn" class="btn btn-gold">Connect ID</button>
-          <button type="button" id="home-tag-clear" class="btn btn-danger hidden">Clear</button>
+          <button type="submit" id="home-tag-btn" class="btn btn-gold btn-sm">Connect</button>
+          <button type="button" id="home-tag-clear" class="btn btn-danger btn-sm hidden">✕</button>
         </form>
-        <div id="home-player-pill" class="connected-player-pill hidden"></div>
-      </div>
-
-      <div class="home-actions">
-        <a href="/drafting/" class="btn btn-gold home-cta">Open Ranked Drafting →</a>
-        <a href="/counters/" class="btn btn-blue home-cta">⚔ Counter Picker</a>
-        <a href="/lookup/?mode=compare" class="btn btn-ghost home-cta">1v1 Player Battle</a>
+        <div id="home-player-pill" class="connected-player-pill hidden" style="margin-top:10px;"></div>
+        <div id="home-player-quick" class="home-player-quick hidden">
+          <a href="/drafting/" class="btn btn-ghost btn-sm">⚔ Draft w/ My Lv11s</a>
+          <a href="/training/" class="btn btn-ghost btn-sm">✦ Vault AI Coach</a>
+          <a href="/training/?tab=upgrade" class="btn btn-ghost btn-sm">⬆ Upgrades</a>
+        </div>
       </div>
     </section>
 
@@ -220,14 +234,18 @@
 
       function showPlayer(p) {
         connectedProfile = p;
+        const v3 = p.victories_3v3 || 0;
+        const sd = (p.solo_victories || 0) + (p.duo_victories || 0);
+        const share3v3 = Math.round((v3 / Math.max(1, v3 + sd)) * 100);
         pill.className = "connected-player-pill";
         pill.innerHTML = `
           <span><strong>${BV.esc(p.name)}</strong> (${BV.esc(p.tag)})</span>
-          <span>🏆 ${p.trophies.toLocaleString()}</span>
           <span class="lv11-badge">LV 11: ${p.power11_count}</span>
+          <span>3v3: ${share3v3}%</span>
           <span class="rating-mini">${p.rating.score}/10</span>
         `;
         clearBtn.classList.remove("hidden");
+        document.getElementById("home-player-quick")?.classList.remove("hidden");
       }
 
       async function connectTag(raw, force = false) {
@@ -261,6 +279,7 @@
         input.value = "";
         pill.className = "connected-player-pill hidden";
         clearBtn.classList.add("hidden");
+        document.getElementById("home-player-quick")?.classList.add("hidden");
       });
 
       const csModal = document.getElementById("map-cheatsheet-modal");
@@ -415,6 +434,8 @@
           const events = (rot.events || []).slice(0, 6);
           if (!events.length) throw new Error("empty");
           badge.textContent = `${events.length} LIVE MAPS NOW`;
+          const kpiMaps = document.getElementById("kpi-maps");
+          if (kpiMaps) kpiMaps.textContent = String(events.length);
           events.forEach((ev) => rotationByMap.set(ev.map, ev));
           grid.innerHTML = events
             .map((ev) => {
@@ -518,6 +539,10 @@
           document.getElementById("home-status-dot").className = s.api_status?.ok === false ? "dot warn" : "dot online";
           document.getElementById("home-status-text").textContent =
             `Live AI Online • ${(s.total_matches || 0).toLocaleString()} Pro Matches • ${(s.tracked_top_players || 0).toLocaleString()} Pros`;
+          const km = document.getElementById("kpi-matches");
+          const kp = document.getElementById("kpi-pros");
+          if (km) km.textContent = (s.total_matches || 0).toLocaleString();
+          if (kp) kp.textContent = (s.tracked_top_players || 0).toLocaleString();
         } catch {
           document.getElementById("home-status-dot").className = "dot warn";
           document.getElementById("home-status-text").textContent = "Connecting to BrawlVault AI Engine...";

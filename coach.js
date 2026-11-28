@@ -21,22 +21,22 @@ function getChatStorageKey() {
   return `bv_coach_chats_v1_${uid}`;
 }
 
-function getSeenTargetKey(type, tag) {
+function getSeenAccountKey() {
   const uid = BV.getAuthUser()?.id || "anon";
-  return `bv_coach_seen_v1_${uid}_${type}_${BV.normalizeTag(tag)}`;
+  return `bv_coach_seen_acct_v1_${uid}`;
 }
 
-function hasEverChattedTarget(type, tag) {
+function hasEverChattedTarget() {
   try {
-    return localStorage.getItem(getSeenTargetKey(type, tag)) === "1";
+    return localStorage.getItem(getSeenAccountKey()) === "1" || loadAllChats().length > 0;
   } catch {
     return false;
   }
 }
 
-function markChattedTarget(type, tag) {
+function markChattedTarget() {
   try {
-    localStorage.setItem(getSeenTargetKey(type, tag), "1");
+    localStorage.setItem(getSeenAccountKey(), "1");
   } catch {
     // ignore storage errors
   }
@@ -95,10 +95,10 @@ async function syncChatsFromCloud() {
       saveAllChats(merged, false);
     }
     if (COACH_STATE.profile && !COACH_STATE.messages.length) {
-      const targetChats = getChatsForTarget(COACH_STATE.type, COACH_STATE.profile.tag);
-      if (targetChats.length) {
-        COACH_STATE.activeChatId = targetChats[0].id;
-        COACH_STATE.messages = targetChats[0].messages.map((m) => ({ ...m, loading: false }));
+      const accountChats = getChatsForTarget();
+      if (accountChats.length) {
+        COACH_STATE.activeChatId = accountChats[0].id;
+        COACH_STATE.messages = accountChats[0].messages.map((m) => ({ ...m, loading: false }));
         renderCoachFeed();
       }
     }
@@ -108,10 +108,9 @@ async function syncChatsFromCloud() {
   }
 }
 
-function getChatsForTarget(type, tag) {
-  const norm = BV.normalizeTag(tag);
+function getChatsForTarget() {
   return loadAllChats()
-    .filter((c) => c.type === type && c.tag === norm && Array.isArray(c.messages) && c.messages.length > 0)
+    .filter((c) => Array.isArray(c.messages) && c.messages.length > 0)
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
 
@@ -215,8 +214,8 @@ function deleteChatSession(chatId) {
 
 function renderChatHistoryBar() {
   const bar = document.getElementById("coach-history-bar");
-  if (!bar || !COACH_STATE.profile) return;
-  const chats = getChatsForTarget(COACH_STATE.type, COACH_STATE.profile.tag);
+  if (!bar) return;
+  const chats = getChatsForTarget();
   if (!chats.length) {
     bar.innerHTML = "";
     bar.classList.add("hidden");
@@ -224,17 +223,18 @@ function renderChatHistoryBar() {
   }
   bar.classList.remove("hidden");
   bar.innerHTML = `
-    <span class="coach-history-lbl">History:</span>
+    <span class="coach-history-lbl">Account Chats:</span>
     <div class="coach-history-list">
       ${chats
-        .slice(0, 8)
+        .slice(0, 10)
         .map((c) => {
           const active = c.id === COACH_STATE.activeChatId;
+          const who = c.name ? `${c.name} • ` : "";
           return `
             <div class="coach-history-chip ${active ? "active" : ""}">
-              <button type="button" class="coach-history-open" data-chat-id="${BV.esc(c.id)}" title="${BV.esc(c.title)}">
+              <button type="button" class="coach-history-open" data-chat-id="${BV.esc(c.id)}" title="${BV.esc(who + c.title)}">
                 <span class="coach-h-title">${BV.esc(c.title)}</span>
-                <span class="coach-h-meta">${c.messages.length} • ${BV.esc(formatRelTime(c.updatedAt))}</span>
+                <span class="coach-h-meta">${BV.esc(c.name || "")}${c.name ? " • " : ""}${c.messages.length} • ${BV.esc(formatRelTime(c.updatedAt))}</span>
               </button>
               <button type="button" class="coach-history-del" data-del-chat="${BV.esc(c.id)}" aria-label="Delete chat" title="Delete chat">×</button>
             </div>
@@ -874,12 +874,11 @@ function renderCoachTabContent() {
         { label: "Brutal Clan Roast", q: "Roast this clan honestly using its real trophy stats, then give 2 fast fixes." },
       ]
     : [
-        { label: "Full Breakdown", q: "" },
-        { label: "Who Should I Upgrade Next?", q: "Based on my Lv 9-10 brawlers, exact Coin/PP costs, and the current S-tier meta, which exact 3 brawlers should I max to Lv 11 next and with what Pro Build?" },
-        { label: "Ranked Role Gaps", q: "Audit my Level 11 role coverage (Tanks, Marksmen, Throwers, Assassins, Controllers, Support) and tell me which missing roles are hurting me most in Ranked." },
-        { label: "Best 3 Brawlers to Push", q: "Which exact 3 brawlers on my account should I push to 1,000 trophies or farm first this week and why?" },
-        { label: "Fix My Recent Losses", q: "Break down my recent mode W-L and most-lost brawlers to tell me exactly why I am losing games and what to stop doing." },
-        { label: "Honest Roast", q: "Roast my account brutally using my real stats vs the 50k average, then give me 2 fast fixes." },
+        { label: "Full Ranked Audit", q: "" },
+        { label: "Who to Max for Ranked?", q: "For competitive Ranked ONLY, based on my Lv 9-10 brawlers, exact Coin/PP costs, and the current S-tier meta, which exact 3 brawlers should I max to Lv 11 next and with what Pro Build?" },
+        { label: "Ranked Role Gaps", q: "Audit my Level 11 role coverage across all 7 official classes and tell me which missing roles are hurting me most in Ranked drafts." },
+        { label: "Fix My 3v3 Losses", q: "Break down my recent 3v3 mode W-L and most-lost brawlers to tell me exactly why I am losing competitive games and what to change." },
+        { label: "Honest Ranked Roast", q: "Roast my Ranked readiness brutally using my real Lv 11 pool, incomplete kits, and 3v3 stats, then give me 2 fast Ranked fixes." },
       ];
 
   slot.innerHTML = `

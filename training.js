@@ -7,6 +7,7 @@ const TRAINING_STATS_KEY = "bv_training_draft_quiz_v1";
 const TR_STATE = {
   drill: "ai-coach",
   mode: "all",
+  phase: "all",
   question: null,
   answered: false,
   selectedName: null,
@@ -83,6 +84,13 @@ const QUIZ_MODES = [
   { id: "heist", label: "Heist" },
 ];
 
+const QUIZ_PHASES = [
+  { id: "all", label: "All Phases (#1–#6)" },
+  { id: "first", label: "1st Pick (#1)" },
+  { id: "mid", label: "Mid Draft (#2–#5)" },
+  { id: "last", label: "Last Pick (#6)" },
+];
+
 async function loadNextDraftQuestion() {
   TR_STATE.loading = true;
   TR_STATE.answered = false;
@@ -90,7 +98,10 @@ async function loadNextDraftQuestion() {
   renderTrainingWorkspace();
 
   try {
-    const qs = TR_STATE.mode && TR_STATE.mode !== "all" ? `?mode=${encodeURIComponent(TR_STATE.mode)}` : "";
+    const params = new URLSearchParams();
+    if (TR_STATE.mode && TR_STATE.mode !== "all") params.set("mode", TR_STATE.mode);
+    if (TR_STATE.phase && TR_STATE.phase !== "all") params.set("phase", TR_STATE.phase);
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const q = await BV.apiFetch(`/api/v1/training/draft-quiz${qs}`);
     TR_STATE.question = q;
   } catch (err) {
@@ -197,9 +208,13 @@ function renderTrainingWorkspace() {
   const modePills = QUIZ_MODES.map(
     (m) => `<button type="button" class="filter-pill ${TR_STATE.mode === m.id ? "active" : ""}" data-qmode="${m.id}">${BV.esc(m.label)}</button>`
   ).join("");
+  const phasePills = QUIZ_PHASES.map(
+    (p) => `<button type="button" class="filter-pill ${TR_STATE.phase === p.id ? "active" : ""}" data-qphase="${p.id}">${BV.esc(p.label)}</button>`
+  ).join("");
 
   if (TR_STATE.loading) {
     ws.innerHTML = `
+      <div class="ai-coach-prompts">${phasePills}</div>
       <div class="ai-coach-prompts">${modePills}</div>
       <div class="empty-card">Finding a verified pro Ranked match (filtering out troll picks)...</div>
     `;
@@ -210,6 +225,7 @@ function renderTrainingWorkspace() {
   const q = TR_STATE.question;
   if (!q || q.error) {
     ws.innerHTML = `
+      <div class="ai-coach-prompts">${phasePills}</div>
       <div class="ai-coach-prompts">${modePills}</div>
       <div class="empty-card error-card">
         ${BV.esc(q?.error || "Could not load draft question.")}
@@ -223,7 +239,10 @@ function renderTrainingWorkspace() {
 
   const isCorrectAnswer = TR_STATE.answered && TR_STATE.selectedName === q.correct_brawler;
   const correctOpt = (q.options || []).find((o) => o.is_correct);
-  const openInDraftUrl = `/drafting/?mode=${encodeURIComponent(q.mode)}&map=${encodeURIComponent(q.map)}&fp=0&blue=${encodeURIComponent(q.ally_picks.map((a) => a.name).join(","))}&red=${encodeURIComponent(q.enemy_picks.map((e) => e.name).join(","))}`;
+  const pickSlot = q.pick_slot || 6;
+  const phaseLabel = q.phase_label || `Pick #${pickSlot}`;
+  const fpFlag = q.is_first_pick_team ? "1" : "0";
+  const openInDraftUrl = `/drafting/?mode=${encodeURIComponent(q.mode)}&map=${encodeURIComponent(q.map)}&fp=${fpFlag}&blue=${encodeURIComponent((q.ally_picks || []).map((a) => a.name).join(","))}&red=${encodeURIComponent((q.enemy_picks || []).map((e) => e.name).join(","))}`;
 
   const optionsHtml = (q.options || [])
     .map((opt) => {
@@ -269,42 +288,54 @@ function renderTrainingWorkspace() {
     `
     : "";
 
+  const enemyPicksHtml = (q.enemy_picks || []).length
+    ? q.enemy_picks.map((e) => renderTeamPill(e, "qp-red")).join("")
+    : `<div class="muted-tag" style="padding:10px 4px;">No enemy picks yet — you have 1st Pick! Choose the safest, lowest-counter map opener.</div>`;
+
+  const promptLine =
+    pickSlot === 1
+      ? "WHICH BRAWLER IS THE SAFEST, STRONGEST 1ST PICK ON THIS MAP?"
+      : pickSlot <= 5
+        ? `WHICH BRAWLER IS THE BEST PICK #${pickSlot} FOR BLUE RIGHT NOW?`
+        : "WHICH BRAWLER COMPLETES BLUE'S COMP & WINS THIS MATCHUP?";
+
   ws.innerHTML = `
+    <div class="ai-coach-prompts">${phasePills}</div>
     <div class="ai-coach-prompts">${modePills}</div>
 
     <section class="panel quiz-arena dyn-fade">
       <div class="coaching-header" style="margin-bottom:12px;">
         <div>
-          <div class="verdict-eyebrow">${BV.esc(BV.formatMode(q.mode).toUpperCase())} • ${q.map_matches.toLocaleString()} PRO GAMES</div>
-          <h2 class="brawl-title coaching-heading">${BV.esc(q.map)} — Pick #6 (Last Pick)</h2>
+          <div class="verdict-eyebrow">${BV.esc(BV.formatMode(q.mode).toUpperCase())} • ${q.map_matches.toLocaleString()} PRO GAMES • ${BV.esc(phaseLabel.toUpperCase())}</div>
+          <h2 class="brawl-title coaching-heading">${BV.esc(q.map)} — ${BV.esc(phaseLabel)}</h2>
         </div>
         <button type="button" id="quiz-skip-btn" class="btn btn-ghost btn-sm">Skip ↻</button>
       </div>
 
       <div class="quiz-teams-grid">
         <div class="quiz-team-box quiz-blue">
-          <div class="team-header"><span>YOUR TEAM (BLUE)</span><span class="pick-order-tag">LAST PICK</span></div>
+          <div class="team-header"><span>YOUR TEAM (BLUE)</span><span class="pick-order-tag">${q.is_first_pick_team ? "1ST PICK SIDE" : "2ND PICK SIDE"}</span></div>
           <div class="quiz-picks-col">
-            ${q.ally_picks.map((a) => renderTeamPill(a, "qp-blue")).join("")}
+            ${(q.ally_picks || []).map((a) => renderTeamPill(a, "qp-blue")).join("")}
             <div class="quiz-pick-chip qp-mystery">
               <div class="qp-qmark">${TR_STATE.answered ? "✓" : "?"}</div>
               <div>
-                <strong>${TR_STATE.answered ? BV.esc(q.correct_brawler) : "YOUR 6TH PICK"}</strong>
-                <span>${TR_STATE.answered ? "Verified Pro Winner" : "Choose the best closer below"}</span>
+                <strong>${TR_STATE.answered ? BV.esc(q.correct_brawler) : `YOUR PICK #${pickSlot}`}</strong>
+                <span>${TR_STATE.answered ? "Verified Pro Winner" : BV.esc(phaseLabel)}</span>
               </div>
             </div>
           </div>
         </div>
 
         <div class="quiz-team-box quiz-red">
-          <div class="team-header"><span>ENEMY TEAM (RED)</span><span class="pick-order-tag">3 LOCKED</span></div>
+          <div class="team-header"><span>ENEMY TEAM (RED)</span><span class="pick-order-tag">${(q.enemy_picks || []).length} LOCKED</span></div>
           <div class="quiz-picks-col">
-            ${q.enemy_picks.map((e) => renderTeamPill(e, "qp-red")).join("")}
+            ${enemyPicksHtml}
           </div>
         </div>
       </div>
 
-      <div class="rot-comp-label" style="margin:14px 0 8px;">WHICH BRAWLER COMPLETES BLUE'S COMP &amp; WINS THIS MATCHUP?</div>
+      <div class="rot-comp-label" style="margin:14px 0 8px;">${promptLine}</div>
       <div class="quiz-options-grid">${optionsHtml}</div>
 
       ${verdictHtml}
@@ -365,6 +396,12 @@ function bindModePills() {
   document.querySelectorAll("[data-qmode]").forEach((btn) => {
     btn.addEventListener("click", () => {
       TR_STATE.mode = btn.dataset.qmode;
+      loadNextDraftQuestion();
+    });
+  });
+  document.querySelectorAll("[data-qphase]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      TR_STATE.phase = btn.dataset.qphase;
       loadNextDraftQuestion();
     });
   });

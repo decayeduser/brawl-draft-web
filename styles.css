@@ -4666,3 +4666,86 @@ button.nav-user-pill:hover {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ==================== HOME COMMAND CENTER HERO ==================== */
+.home-cmd-hero {
+  display: grid;
+  grid-template-columns: 1.25fr 0.95fr;
+  gap: 18px;
+  padding: 26px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(255, 201, 40, 0.05) 0%, var(--surface) 45%, rgba(34, 184, 255, 0.04) 100%);
+  border: 1px solid var(--border);
+  align-items: center;
+}
+.home-cmd-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.home-cmd-title {
+  font-size: clamp(28px, 4.4vw, 44px);
+  line-height: 1.05;
+  color: var(--text);
+}
+.home-cmd-sub {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 540px;
+}
+.home-cmd-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.home-kpi-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.home-kpi-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.home-kpi-pill strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+.home-cmd-card {
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(9, 9, 12, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+.home-player-quick {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.home-player-quick a {
+  text-decoration: none;
+  flex: 1 1 auto;
+  text-align: center;
+}
+@media (max-width: 920px) {
+  .home-cmd-hero {
+    grid-template-columns: 1fr;
+    padding: 18px 14px;
+  }
+}
