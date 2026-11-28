@@ -16,7 +16,29 @@ const TR_STATE = {
   stats: loadTrainingStats(),
   recentAttempts: [],
   weakModes: [],
+  sparringLoading: false,
+  sparringText: "",
+  sparringError: "",
 };
+
+async function runSparringReview() {
+  TR_STATE.sparringLoading = true;
+  TR_STATE.sparringError = "";
+  renderTrainingWorkspace();
+  try {
+    const res = await BV.apiFetch("/api/v1/training/sparring-review", { method: "POST" });
+    if (res.ai_enabled && res.response) {
+      TR_STATE.sparringText = res.response;
+    } else {
+      TR_STATE.sparringError = res.message || "Could not generate your Sparring Review right now.";
+    }
+  } catch (err) {
+    TR_STATE.sparringError = err.message || "Could not reach Vault AI Sparring Review.";
+  } finally {
+    TR_STATE.sparringLoading = false;
+    renderTrainingWorkspace();
+  }
+}
 
 async function syncTrainingStatsFromServer() {
   try {
@@ -156,7 +178,7 @@ function handleQuizAnswer(brawlerName) {
         renderTrainingWorkspace();
       }
     })
-    .catch(() => {});
+    .catch(() => { });
 }
 
 function renderTeamPill(b, sideClass) {
@@ -175,33 +197,74 @@ function renderTrainingWorkspace() {
   const ws = document.getElementById("training-workspace");
   if (!ws) return;
 
-  if (TR_STATE.drill === "coming-soon") {
+  if (TR_STATE.drill === "sparring") {
+    const missed = TR_STATE.recentAttempts.filter((a) => !a.is_correct);
+    const fmtMd =
+      typeof formatCoachMarkdown === "function"
+        ? formatCoachMarkdown
+        : (t) => `<p class="ai-coach-p">${BV.esc(t).replace(/\n/g, "<br/>")}</p>`;
+
     ws.innerHTML = `
       <section class="panel dyn-fade">
-        <div class="verdict-eyebrow">⚡ EXPANDING 1-ON-1 TRAINING GROUND</div>
-        <h3 class="brawl-title coaching-heading" style="margin-top:4px;">Upcoming Personal Training Drills</h3>
-        <p class="coaching-sub" style="margin:8px 0 14px;">
-          Personal Training is your dedicated hub to practice Ranked decision-making between games. More 1-on-1 drills will be added here next:
-        </p>
-        <div class="coaching-grid">
-          <article class="coach-card">
-            <div class="coach-head"><span class="coach-cat">DRILL #2</span><span class="coach-tag">PLANNED</span></div>
-            <h4 class="coach-title">⚔ Speed Counter Drill</h4>
-            <p class="coach-summary">Enemy locks a carry brawler on a random map — pick the hardest counter before a 10-second timer expires.</p>
-          </article>
-          <article class="coach-card">
-            <div class="coach-head"><span class="coach-cat">DRILL #3</span><span class="coach-tag">PLANNED</span></div>
-            <h4 class="coach-title">🚫 Ban Phase Trainer</h4>
-            <p class="coach-summary">Practice choosing the right bans based on whether your team has 1st Pick or Last Pick.</p>
-          </article>
-          <article class="coach-card">
-            <div class="coach-head"><span class="coach-cat">DRILL #4</span><span class="coach-tag">PLANNED</span></div>
-            <h4 class="coach-title">✦ Vault AI Sparring Review</h4>
-            <p class="coach-summary">Get personalized 1-on-1 feedback on the exact draft mistakes you miss most often.</p>
-          </article>
+        <div class="coaching-header" style="margin-bottom:12px;">
+          <div>
+            <div class="verdict-eyebrow">🧠 1-ON-1 MISTAKE ANALYSIS • POWERED BY VAULT AI</div>
+            <h3 class="brawl-title coaching-heading">Vault AI Sparring Review</h3>
+            <p class="coaching-sub">Get personalized 1-on-1 feedback on the exact draft mistakes you miss most often in Draft IQ Trainer.</p>
+          </div>
+          <button type="button" id="run-sparring-btn" class="btn btn-gold" ${TR_STATE.sparringLoading ? "disabled" : ""}>
+            ${TR_STATE.sparringLoading ? "Analyzing..." : "✦ Analyze My Mistakes"}
+          </button>
         </div>
+
+        ${
+          TR_STATE.weakModes.length
+            ? `<div class="ai-coach-prompts" style="margin-bottom:12px;">${TR_STATE.weakModes
+                .map((m) => `<span class="stat-chip">${BV.esc(BV.formatMode(m.mode))}: ${m.accuracy}% (${m.correct}/${m.total})</span>`)
+                .join("")}</div>`
+            : ""
+        }
+
+        ${
+          TR_STATE.sparringLoading
+            ? `<div class="ai-coach-output"><div class="muted-tag">Reviewing your missed drafts &amp; mode accuracy with Vault AI...</div></div>`
+            : TR_STATE.sparringError
+              ? `<div class="ai-coach-output"><div class="muted-tag">${BV.esc(TR_STATE.sparringError)}</div></div>`
+              : TR_STATE.sparringText
+                ? `<div class="ai-coach-output dyn-fade"><div class="ai-coach-prose">${fmtMd(TR_STATE.sparringText)}</div></div>`
+                : `<div class="ai-coach-output"><div class="muted-tag">${
+                    TR_STATE.stats.total > 0
+                      ? `You have <strong>${TR_STATE.stats.total}</strong> recorded drills (${missed.length} recent misses). Click <strong>✦ Analyze My Mistakes</strong> above for your 1-on-1 Vault AI breakdown.`
+                      : `Play a few rounds in <strong>🎯 Draft IQ Trainer</strong> first, then come back here for a personalized Vault AI breakdown of your draft habits!`
+                  }</div></div>`
+        }
+
+        ${
+          missed.length
+            ? `
+          <div class="rot-comp-label" style="margin:16px 0 8px;">YOUR RECENT MISSED DRAFTS (${missed.length})</div>
+          <div class="quiz-options-grid">
+            ${missed
+              .slice(0, 6)
+              .map(
+                (a) => `
+                  <div class="quiz-pick-chip" style="justify-content:space-between;">
+                    <div>
+                      <strong>${BV.esc(a.map)} (${BV.esc(BV.formatMode(a.mode))})</strong>
+                      <span>You picked <strong>${BV.esc(a.picked_brawler)}</strong> • Pro won with <strong>${BV.esc(a.correct_brawler)}</strong></span>
+                    </div>
+                    <span class="quiz-badge-no">MISS</span>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+        `
+            : ""
+        }
       </section>
     `;
+    document.getElementById("run-sparring-btn")?.addEventListener("click", runSparringReview);
     return;
   }
 
@@ -341,9 +404,8 @@ function renderTrainingWorkspace() {
       ${verdictHtml}
     </section>
 
-    ${
-      TR_STATE.recentAttempts.length
-        ? `
+    ${TR_STATE.recentAttempts.length
+      ? `
       <section class="panel dyn-fade">
         <div class="coaching-header" style="margin-bottom:10px;">
           <div>
@@ -352,21 +414,20 @@ function renderTrainingWorkspace() {
           </div>
           <span class="stat-chip">${TR_STATE.stats.correct}/${TR_STATE.stats.total} CORRECT</span>
         </div>
-        ${
-          TR_STATE.weakModes.length
-            ? `<div class="ai-coach-prompts" style="margin-bottom:10px;">${TR_STATE.weakModes
-                .map(
-                  (m) =>
-                    `<span class="stat-chip">${BV.esc(BV.formatMode(m.mode))}: ${m.accuracy}% (${m.correct}/${m.total})</span>`
-                )
-                .join("")}</div>`
-            : ""
-        }
+        ${TR_STATE.weakModes.length
+        ? `<div class="ai-coach-prompts" style="margin-bottom:10px;">${TR_STATE.weakModes
+          .map(
+            (m) =>
+              `<span class="stat-chip">${BV.esc(BV.formatMode(m.mode))}: ${m.accuracy}% (${m.correct}/${m.total})</span>`
+          )
+          .join("")}</div>`
+        : ""
+      }
         <div class="quiz-options-grid">
           ${TR_STATE.recentAttempts
-            .slice(0, 6)
-            .map(
-              (a) => `
+        .slice(0, 6)
+        .map(
+          (a) => `
                 <div class="quiz-pick-chip" style="justify-content:space-between;">
                   <div>
                     <strong>${BV.esc(a.map)} (${BV.esc(BV.formatMode(a.mode))})</strong>
@@ -375,12 +436,12 @@ function renderTrainingWorkspace() {
                   <span class="${a.is_correct ? "quiz-badge-ok" : "quiz-badge-no"}">${a.is_correct ? "✓" : "✕"}</span>
                 </div>
               `
-            )
-            .join("")}
+        )
+        .join("")}
         </div>
       </section>
     `
-        : ""
+      : ""
     }
   `;
 
