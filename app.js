@@ -231,6 +231,7 @@ function populateMapsForMode() {
   });
   STATE.map = maps[0] || "";
   mapSelect.value = STATE.map;
+  updateDraftMapPreview();
 }
 
 function renderTimelineAndBans() {
@@ -987,6 +988,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("map-select").addEventListener("change", (e) => {
     STATE.map = e.target.value;
+    updateDraftMapPreview();
     requestRecommendations();
   });
 

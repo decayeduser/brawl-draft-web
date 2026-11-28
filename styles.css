@@ -4753,15 +4753,33 @@ button.nav-user-pill:hover {
 
 /* ==================== LOCAL MAP PREVIEWS (DRAFT TRAINER / DRAFTING / HOME) ==================== */
 .quiz-board-with-map {
-  display: grid;
-  grid-template-columns: 165px minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
+}
+.quiz-board-with-map .quiz-teams-grid {
+  flex: 1 1 380px;
+  min-width: 0;
+}
+.quiz-team-box,
+.quiz-pick-chip,
+.quiz-option-card {
+  min-width: 0;
+}
+.quiz-pick-chip strong,
+.quiz-pick-chip span,
+.quiz-opt-name,
+.quiz-opt-cls {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .quiz-map-box {
+  flex: 0 0 152px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 8px;
   border-radius: 12px;
@@ -4771,9 +4789,10 @@ button.nav-user-pill:hover {
 .quiz-map-img {
   width: 100%;
   height: auto;
-  max-height: 230px;
+  max-height: 220px;
   object-fit: contain;
   border-radius: 8px;
+  background: #09090b;
 }
 .quiz-map-caption {
   font-size: 11px;
@@ -4785,7 +4804,7 @@ button.nav-user-pill:hover {
   padding: 2px;
   border-radius: 8px;
   border: 1px solid rgba(255, 201, 40, 0.45);
-  background: rgba(255, 255, 255, 0.04);
+  background: #09090b;
   cursor: pointer;
   flex-shrink: 0;
   display: inline-flex;
@@ -4795,7 +4814,7 @@ button.nav-user-pill:hover {
 .draft-map-thumb-btn img {
   width: 34px;
   height: 44px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 6px;
   display: block;
 }
@@ -4807,15 +4826,15 @@ button.nav-user-pill:hover {
 .cs-map-img {
   width: 130px;
   height: auto;
+  object-fit: contain;
   border-radius: 10px;
   border: 1px solid var(--border);
+  background: #09090b;
   flex-shrink: 0;
 }
 @media (max-width: 720px) {
-  .quiz-board-with-map {
-    grid-template-columns: 1fr;
-  }
   .quiz-map-box {
+    flex: 1 1 100%;
     flex-direction: row;
     justify-content: center;
   }

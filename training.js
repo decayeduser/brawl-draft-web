@@ -25,8 +25,15 @@ async function runSparringReview() {
   TR_STATE.sparringLoading = true;
   TR_STATE.sparringError = "";
   renderTrainingWorkspace();
+  const activeTag =
+    (typeof COACH_STATE !== "undefined" && COACH_STATE.type === "player" && COACH_STATE.profile?.tag) ||
+    BV.getSavedTag() ||
+    "";
   try {
-    const res = await BV.apiFetch("/api/v1/training/sparring-review", { method: "POST" });
+    const res = await BV.apiFetch("/api/v1/training/sparring-review", {
+      method: "POST",
+      body: JSON.stringify({ tag: activeTag }),
+    });
     if (res.ai_enabled && res.response) {
       TR_STATE.sparringText = res.response;
     } else {
@@ -199,6 +206,11 @@ function renderTrainingWorkspace() {
 
   if (TR_STATE.drill === "sparring") {
     const missed = TR_STATE.recentAttempts.filter((a) => !a.is_correct);
+    const activeProfile = typeof COACH_STATE !== "undefined" && COACH_STATE.type === "player" ? COACH_STATE.profile : null;
+    const recentLosses = ((activeProfile?.battle_stats?.recent_matches) || []).filter(
+      (m) => String(m.result || "").toLowerCase() === "defeat"
+    );
+    const activeTag = activeProfile?.tag || BV.getSavedTag() || "";
     const fmtMd =
       typeof formatCoachMarkdown === "function"
         ? formatCoachMarkdown
@@ -208,12 +220,12 @@ function renderTrainingWorkspace() {
       <section class="panel dyn-fade">
         <div class="coaching-header" style="margin-bottom:12px;">
           <div>
-            <div class="verdict-eyebrow">🧠 1-ON-1 MISTAKE ANALYSIS • POWERED BY VAULT AI</div>
+            <div class="verdict-eyebrow">🧠 LIVE RECENT MATCHES + DRAFT TRAINER • VAULT AI</div>
             <h3 class="brawl-title coaching-heading">Vault AI Sparring Review</h3>
-            <p class="coaching-sub">Get personalized 1-on-1 feedback on the exact draft mistakes you miss most often in Draft Trainer.</p>
+            <p class="coaching-sub">Analyzes your <strong>recent Brawl Stars match losses</strong>${activeTag ? ` (${BV.esc(activeTag)})` : ""} and your Draft Trainer mistakes for 1-on-1 Ranked fixes.</p>
           </div>
           <button type="button" id="run-sparring-btn" class="btn btn-gold" ${TR_STATE.sparringLoading ? "disabled" : ""}>
-            ${TR_STATE.sparringLoading ? "Analyzing..." : "✦ Analyze My Mistakes"}
+            ${TR_STATE.sparringLoading ? "Analyzing..." : "✦ Analyze My Matches &amp; Drills"}
           </button>
         </div>
 
@@ -227,22 +239,46 @@ function renderTrainingWorkspace() {
 
         ${
           TR_STATE.sparringLoading
-            ? `<div class="ai-coach-output"><div class="muted-tag">Reviewing your missed drafts &amp; mode accuracy with Vault AI...</div></div>`
+            ? `<div class="ai-coach-output"><div class="muted-tag">Analyzing your recent Brawl Stars matches &amp; Draft Trainer log with Vault AI...</div></div>`
             : TR_STATE.sparringError
               ? `<div class="ai-coach-output"><div class="muted-tag">${BV.esc(TR_STATE.sparringError)}</div></div>`
               : TR_STATE.sparringText
                 ? `<div class="ai-coach-output dyn-fade"><div class="ai-coach-prose">${fmtMd(TR_STATE.sparringText)}</div></div>`
                 : `<div class="ai-coach-output"><div class="muted-tag">${
-                    TR_STATE.stats.total > 0
-                      ? `You have <strong>${TR_STATE.stats.total}</strong> recorded drills (${missed.length} recent misses). Click <strong>✦ Analyze My Mistakes</strong> above for your 1-on-1 Vault AI breakdown.`
-                      : `Play a few rounds in <strong>🎯 Draft Trainer</strong> first, then come back here for a personalized Vault AI breakdown of your draft habits!`
+                    activeTag || TR_STATE.stats.total > 0
+                      ? `Ready to analyze ${activeTag ? `recent matches for <strong>${BV.esc(activeTag)}</strong>` : ""}${activeTag && TR_STATE.stats.total > 0 ? " + " : ""}${TR_STATE.stats.total > 0 ? `<strong>${TR_STATE.stats.total}</strong> Draft Trainer rounds` : ""}. Click <strong>✦ Analyze My Matches &amp; Drills</strong> above!`
+                      : `Save your Brawl Stars <strong>#TAG</strong> (top-right profile) or play a few rounds in <strong>🎯 Draft Trainer</strong>, then click Analyze!`
                   }</div></div>`
+        }
+
+        ${
+          recentLosses.length
+            ? `
+          <div class="rot-comp-label" style="margin:16px 0 8px;">YOUR RECENT LIVE LOSSES (${recentLosses.length})</div>
+          <div class="quiz-options-grid">
+            ${recentLosses
+              .slice(0, 6)
+              .map(
+                (m) => `
+                  <div class="quiz-pick-chip" style="justify-content:space-between;">
+                    <div>
+                      <strong>${BV.esc(m.map || "Map")} (${BV.esc(BV.formatMode(m.mode || ""))})</strong>
+                      <span>Played <strong>${BV.esc(m.brawler || "")}</strong></span>
+                    </div>
+                    <span class="quiz-badge-no">DEFEAT</span>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+        `
+            : ""
         }
 
         ${
           missed.length
             ? `
-          <div class="rot-comp-label" style="margin:16px 0 8px;">YOUR RECENT MISSED DRAFTS (${missed.length})</div>
+          <div class="rot-comp-label" style="margin:16px 0 8px;">DRAFT TRAINER MISSES (${missed.length})</div>
           <div class="quiz-options-grid">
             ${missed
               .slice(0, 6)
