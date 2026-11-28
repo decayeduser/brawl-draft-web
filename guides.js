@@ -408,6 +408,34 @@ async function deleteGuide(guideId) {
   renderGuides();
 }
 
+const MODE_VISUALS = {
+  gemGrab: { icon: "💎", accent: "#a855f7", label: "Gem Grab" },
+  brawlBall: { icon: "⚽", accent: "#38bdf8", label: "Brawl Ball" },
+  heist: { icon: "💰", accent: "#f59e0b", label: "Heist" },
+  bounty: { icon: "⭐", accent: "#3b82f6", label: "Bounty" },
+  hotZone: { icon: "🔥", accent: "#ef4444", label: "Hot Zone" },
+  knockout: { icon: "💀", accent: "#f97316", label: "Knockout" },
+  all: { icon: "✦", accent: "#ffc928", label: "All Modes" },
+};
+
+function getModeVisual(mode) {
+  return MODE_VISUALS[mode] || { icon: "✦", accent: "#ffc928", label: BV.formatMode(mode || "all") };
+}
+
+function updateGuidesStatsStrip(filteredCount) {
+  const strip = document.getElementById("guides-stats-strip");
+  if (!strip) return;
+  const total = GUIDES_STATE.guides.length;
+  const totalVotes = GUIDES_STATE.guides.reduce((sum, g) => sum + (g.upvotes_count || 0), 0);
+  const uniqueBrawlers = new Set(GUIDES_STATE.guides.map((g) => g.brawler).filter(Boolean)).size;
+  strip.innerHTML = `
+    <span class="gstat-pill">📚 <strong>${total}</strong> Guides</span>
+    <span class="gstat-pill">▲ <strong>${totalVotes}</strong> Community Votes</span>
+    <span class="gstat-pill">🥊 <strong>${uniqueBrawlers}</strong> Brawlers Covered</span>
+    ${filteredCount !== total ? `<span class="gstat-pill gstat-active">Showing ${filteredCount} matching</span>` : ""}
+  `;
+}
+
 function openReadModal(guide) {
   const modal = document.getElementById("read-guide-modal");
   const content = document.getElementById("read-modal-content");
@@ -422,42 +450,49 @@ function openReadModal(guide) {
   const voted = GUIDES_STATE.myVotes.has(guide.id);
   const portrait = guide.brawler_id ? BV.resolvePortraitUrl("", guide.brawler_id) : "";
   const mapImg = guide.map && guide.map !== "Any Map" ? BV.resolveMapUrl(guide.map) : "";
+  const mv = getModeVisual(guide.mode);
 
-  const buildParts = [];
-  if (guide.star_power) buildParts.push(`<div class="build-row"><span class="build-key">★ Star Power</span><span class="build-val">${BV.esc(censorDisplay(guide.star_power))}</span></div>`);
-  if (guide.gadget) buildParts.push(`<div class="build-row"><span class="build-key">⚙ Gadget</span><span class="build-val">${BV.esc(censorDisplay(guide.gadget))}</span></div>`);
-  if (guide.gears) buildParts.push(`<div class="build-row"><span class="build-key">⛨ Gears</span><span class="build-val">${BV.esc(censorDisplay(guide.gears))}</span></div>`);
+  const buildCards = [];
+  if (guide.star_power) {
+    buildCards.push(`<div class="gmodal-build-card gmb-sp"><span>★ STAR POWER</span><strong>${BV.esc(censorDisplay(guide.star_power))}</strong></div>`);
+  }
+  if (guide.gadget) {
+    buildCards.push(`<div class="gmodal-build-card gmb-gd"><span>⚙ GADGET</span><strong>${BV.esc(censorDisplay(guide.gadget))}</strong></div>`);
+  }
+  if (guide.gears) {
+    buildCards.push(`<div class="gmodal-build-card gmb-gr"><span>⛨ GEARS</span><strong>${BV.esc(censorDisplay(guide.gears))}</strong></div>`);
+  }
 
   content.innerHTML = `
-    <div class="modal-head">
-      ${portrait ? `<img src="${portrait}" alt="${BV.esc(guide.brawler)}" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${guide.brawler_id}.png'" />` : ""}
-      <div style="flex:1;min-width:0;">
-        <div class="guide-pills-row">
-          <span class="stat-chip chip-pick">${BV.esc(guide.brawler)}</span>
-          <span class="stat-chip">${BV.esc(guide.mode === "all" ? "All Modes" : BV.formatMode(guide.mode))}</span>
-          <span class="stat-chip">${BV.esc(guide.map || "Any Map")}</span>
+    <div class="gmodal-v2-hero" style="--mode-accent:${mv.accent};">
+      ${portrait ? `<img src="${portrait}" alt="${BV.esc(guide.brawler)}" class="gmodal-v2-portrait" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${guide.brawler_id}.png'" />` : ""}
+      <div class="gmodal-v2-info">
+        <div class="gc2-badges">
+          <span class="gc2-badge gc2-brawler">${BV.esc(guide.brawler)}</span>
+          <span class="gc2-badge gc2-mode">${mv.icon} ${BV.esc(mv.label)}</span>
+          <span class="gc2-badge gc2-map">🗺 ${BV.esc(guide.map || "Any Map")}</span>
         </div>
         <h2 class="guide-modal-title">${BV.esc(censorDisplay(guide.title))}</h2>
         <div class="guide-author-line">
           ${guide.author_avatar ? `<img src="${BV.esc(guide.author_avatar)}" alt="" class="mini-avatar" referrerpolicy="no-referrer" />` : ""}
-          <span>by <strong>${BV.esc(censorDisplay(guide.author_name))}</strong> • ${timeAgo(guide.created_at)}</span>
+          <span>Written by <strong>${BV.esc(censorDisplay(guide.author_name))}</strong> • ${timeAgo(guide.created_at)}</span>
         </div>
       </div>
       ${mapImg ? `<img src="${mapImg}" alt="${BV.esc(guide.map)}" class="guide-modal-map" onerror="this.style.display='none'" />` : ""}
     </div>
 
-    ${buildParts.length ? `<div class="build-box"><div class="build-title">RECOMMENDED BUILD</div>${buildParts.join("")}</div>` : ""}
+    ${buildCards.length ? `<div class="gmodal-build-grid">${buildCards.join("")}</div>` : ""}
 
     ${
       guide.synergies || guide.counters
         ? `<div class="guide-matchup-chips">
-            ${guide.synergies ? `<div class="gm-chip gm-syn"><strong>Best With:</strong> ${BV.esc(censorDisplay(guide.synergies))}</div>` : ""}
-            ${guide.counters ? `<div class="gm-chip gm-cnt"><strong>Matchups:</strong> ${BV.esc(censorDisplay(guide.counters))}</div>` : ""}
+            ${guide.synergies ? `<div class="gm-chip gm-syn"><strong>🤝 Best With:</strong> ${BV.esc(censorDisplay(guide.synergies))}</div>` : ""}
+            ${guide.counters ? `<div class="gm-chip gm-cnt"><strong>⚔ Matchups:</strong> ${BV.esc(censorDisplay(guide.counters))}</div>` : ""}
           </div>`
         : ""
     }
 
-    <div class="guide-full-body">${BV.esc(censorDisplay(guide.body))}</div>
+    <div class="guide-full-body gmodal-v2-body">${BV.esc(censorDisplay(guide.body))}</div>
 
     <div class="guide-modal-footer">
       <button type="button" id="modal-upvote-btn" class="btn ${voted ? "btn-gold" : "btn-ghost"} btn-sm">
@@ -492,11 +527,16 @@ function renderGuides() {
   if (!sb) return;
 
   const list = getFilteredGuides();
+  updateGuidesStatsStrip(list.length);
+
   if (!list.length) {
     grid.innerHTML = `
-      <div class="empty-card">
-        No match guides found for this filter yet.
-        ${GUIDES_STATE.user ? "Click <strong>+ Write Guide</strong> to publish the first one!" : "Sign in with Google to write the first guide!"}
+      <div class="empty-card guides-empty-v2">
+        <div style="font-size:28px;margin-bottom:6px;">📖</div>
+        <strong>No match guides match this filter yet.</strong>
+        <p class="muted-tag" style="margin:6px 0 0;">
+          ${GUIDES_STATE.user ? "Be the first to share your Ranked strategy — click <strong>+ Write Guide</strong> above!" : "Sign in with Google to publish the first guide for this matchup!"}
+        </p>
       </div>
     `;
     return;
@@ -507,57 +547,60 @@ function renderGuides() {
     const voted = GUIDES_STATE.myVotes.has(g.id);
     const portrait = g.brawler_id ? BV.resolvePortraitUrl("", g.brawler_id) : "";
     const mapThumb = g.map && g.map !== "Any Map" ? BV.resolveMapUrl(g.map) : "";
+    const mv = getModeVisual(g.mode);
     const cleanBody = censorDisplay(g.body);
-    const preview = cleanBody.length > 175 ? `${cleanBody.slice(0, 175).trim()}…` : cleanBody;
+    const preview = cleanBody.length > 165 ? `${cleanBody.slice(0, 165).trim()}…` : cleanBody;
 
     const card = document.createElement("article");
-    card.className = "guide-card guide-card-modern";
+    card.className = "guide-card-v2";
+    card.style.setProperty("--mode-accent", mv.accent);
     card.innerHTML = `
-      <div class="guide-card-top">
-        <div class="guide-card-brawler">
-          ${portrait ? `<img src="${portrait}" alt="${BV.esc(g.brawler)}" loading="lazy" decoding="async" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${g.brawler_id}.png'" />` : ""}
-          <div class="guide-card-titles">
-            <div class="guide-pills-row">
-              <span class="stat-chip chip-pick">${BV.esc(g.brawler)}</span>
-              <span class="stat-chip">${BV.esc(g.mode === "all" ? "All Modes" : BV.formatMode(g.mode))}</span>
-              <span class="stat-chip">${BV.esc(g.map || "Any Map")}</span>
-            </div>
-            <h3 class="guide-card-title">${BV.esc(censorDisplay(g.title))}</h3>
-          </div>
-          ${mapThumb ? `<img src="${mapThumb}" alt="${BV.esc(g.map)}" class="guide-card-map-thumb" loading="lazy" decoding="async" onerror="this.style.display='none'" />` : ""}
+      <div class="gc2-accent-bar"></div>
+      <div class="gc2-head">
+        <div class="gc2-portrait-wrap">
+          ${portrait ? `<img src="${portrait}" alt="${BV.esc(g.brawler)}" class="gc2-portrait" loading="lazy" decoding="async" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${g.brawler_id}.png'" />` : `<div class="gc2-portrait gc2-portrait-fallback">${mv.icon}</div>`}
         </div>
-        <button type="button" class="upvote-btn ${voted ? "voted" : ""}" data-id="${BV.esc(g.id)}">
-          <span>▲</span>
+        <div class="gc2-meta">
+          <div class="gc2-badges">
+            <span class="gc2-badge gc2-brawler">${BV.esc(g.brawler)}</span>
+            <span class="gc2-badge gc2-mode">${mv.icon} ${BV.esc(mv.label)}</span>
+            <span class="gc2-badge gc2-map">${BV.esc(g.map || "Any Map")}</span>
+          </div>
+          <h3 class="gc2-title">${BV.esc(censorDisplay(g.title))}</h3>
+        </div>
+        ${mapThumb ? `<img src="${mapThumb}" alt="${BV.esc(g.map)}" class="gc2-map-thumb" loading="lazy" decoding="async" onerror="this.style.display='none'" />` : ""}
+        <button type="button" class="gc2-upvote ${voted ? "voted" : ""}" data-id="${BV.esc(g.id)}" title="Upvote guide">
+          <span class="gc2-up-arrow">▲</span>
           <strong>${g.upvotes_count || 0}</strong>
         </button>
       </div>
 
       ${
         g.star_power || g.gadget || g.gears
-          ? `<div class="guide-mini-build">
-              ${g.star_power ? `<span>★ ${BV.esc(censorDisplay(g.star_power))}</span>` : ""}
-              ${g.gadget ? `<span>⚙ ${BV.esc(censorDisplay(g.gadget))}</span>` : ""}
-              ${g.gears ? `<span>⛨ ${BV.esc(censorDisplay(g.gears))}</span>` : ""}
+          ? `<div class="gc2-build-strip">
+              ${g.star_power ? `<span class="gc2-build-pill bp-sp">★ ${BV.esc(censorDisplay(g.star_power))}</span>` : ""}
+              ${g.gadget ? `<span class="gc2-build-pill bp-gd">⚙ ${BV.esc(censorDisplay(g.gadget))}</span>` : ""}
+              ${g.gears ? `<span class="gc2-build-pill bp-gr">⛨ ${BV.esc(censorDisplay(g.gears))}</span>` : ""}
             </div>`
           : ""
       }
 
-      <p class="guide-card-preview">${BV.esc(preview)}</p>
+      <p class="gc2-preview">${BV.esc(preview)}</p>
 
-      <div class="guide-card-foot">
+      <div class="gc2-foot">
         <div class="guide-author-line">
           ${g.author_avatar ? `<img src="${BV.esc(g.author_avatar)}" alt="" class="mini-avatar" referrerpolicy="no-referrer" />` : ""}
-          <span>${BV.esc(censorDisplay(g.author_name))} • ${timeAgo(g.created_at)}</span>
+          <span><strong>${BV.esc(censorDisplay(g.author_name))}</strong> • ${timeAgo(g.created_at)}</span>
         </div>
-        <button type="button" class="read-guide-link">Read Guide →</button>
+        <button type="button" class="gc2-read-btn">Read Guide →</button>
       </div>
     `;
 
-    card.querySelector(".upvote-btn").addEventListener("click", (e) => {
+    card.querySelector(".gc2-upvote").addEventListener("click", (e) => {
       e.stopPropagation();
       toggleUpvote(g.id);
     });
-    card.querySelector(".read-guide-link").addEventListener("click", () => openReadModal(g));
+    card.querySelector(".gc2-read-btn").addEventListener("click", () => openReadModal(g));
     card.addEventListener("click", (e) => {
       if (!e.target.closest("button")) openReadModal(g);
     });
@@ -742,7 +785,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  document.getElementById("guide-filter-mode").addEventListener("change", (e) => {
+  document.querySelectorAll("#guides-mode-chips .mode-chip-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      GUIDES_STATE.modeFilter = btn.dataset.mode || "";
+      document.querySelectorAll("#guides-mode-chips .mode-chip-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      renderGuides();
+    });
+  });
+  document.getElementById("guide-filter-mode")?.addEventListener("change", (e) => {
     GUIDES_STATE.modeFilter = e.target.value;
     renderGuides();
   });
