@@ -735,6 +735,11 @@ function renderEmbeddedUpgradeGuide() {
     : "";
 
   box.innerHTML = `
+    <div class="low-data-notice" style="margin-bottom:12px;text-align:left;line-height:1.5;">
+      <strong>★ Ranked Rule:</strong> Only <strong>Power 11</strong> brawlers can be played in Ranked (Lv 10 &amp; under are locked).
+      &nbsp;•&nbsp;
+      <strong>💡 Drop Strategy:</strong> Upgrading a brawler to <strong>Power 9</strong> unlocks its Star Powers &amp; Gadgets in <strong>Starr Drops &amp; Chaos Drops</strong> for free pulls — finish your main Ranked carries to Lv 11 first!
+    </div>
     ${spikesHtml}
     <div class="explorer-toolbar">
       <div class="filter-pills">

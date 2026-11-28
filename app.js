@@ -83,12 +83,12 @@ function applyPlayerProfile(profile) {
   const clearBtn = document.getElementById("draft-clear-tag-btn");
 
   if (profile) {
-    statusEl.innerHTML = `<strong>${BV.esc(profile.name)}</strong> (${BV.esc(profile.tag)}) • <span class="lv11-inline">${profile.power11_count} Level 11 brawlers</span>`;
+    statusEl.innerHTML = `<strong>${BV.esc(profile.name)}</strong> (${BV.esc(profile.tag)}) • <span class="lv11-inline">${profile.power11_count} Ranked-eligible Lv 11s</span>`;
     toggleBtn.classList.remove("hidden");
     clearBtn.classList.remove("hidden");
     syncLv11ToggleUI();
   } else {
-    statusEl.textContent = "Enter your Brawl Stars ID to recommend only your Level 11 brawlers";
+    statusEl.textContent = "Enter your Brawl Stars ID to filter to your Ranked-eligible Power 11s (Lv 10 & under are locked in Ranked)";
     toggleBtn.classList.add("hidden");
     clearBtn.classList.add("hidden");
   }
