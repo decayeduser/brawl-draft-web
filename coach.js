@@ -870,28 +870,102 @@ function renderCoachTabContent() {
     return;
   }
 
-  // Default: "chat" (Live Gemini AI Coach)
+  // Default: "chat" (Graphical Vault AI Coach)
   const prompts = isClub
     ? [
-        { label: "Full Clan Audit", q: "" },
-        { label: "Recruiting & Kick Plan", q: "Give a concrete recruiting & kick plan to push this clan above the 50k trophy average." },
-        { label: "Mega Pig & Roles", q: "How should we organize Mega Pig and leadership roles based on our roster?" },
-        { label: "Brutal Clan Roast", q: "Roast this clan honestly using its real trophy stats, then give 2 fast fixes." },
+        { icon: "📊", label: "Full Clan Audit", sub: "Roster depth, activity & trophy health", q: "" },
+        { icon: "🎯", label: "Recruiting & Kick Plan", sub: "Raise clan average & member quality", q: "Give a detailed recruiting & kick plan to push this clan above the community average." },
+        { icon: "🐷", label: "Mega Pig & Roles", sub: "Event strategy & leadership structure", q: "How should we organize Mega Pig and leadership roles based on our roster?" },
+        { icon: "💀", label: "Brutal Clan Roast", sub: "Honest audit + 3 fast fixes", q: "Roast this clan honestly using its real stats, then give 3 fast fixes." },
       ]
     : [
-        { label: "Full Ranked Audit", q: "" },
-        { label: "Who to Max for Ranked?", q: "For competitive Ranked ONLY, based on my Lv 9-10 brawlers, exact Coin/PP costs, and the current S-tier meta, which exact 3 brawlers should I max to Lv 11 next and with what Pro Build?" },
-        { label: "Ranked Role Gaps", q: "Audit my Level 11 role coverage across all 7 official classes and tell me which missing roles are hurting me most in Ranked drafts." },
-        { label: "Fix My 3v3 Losses", q: "Break down my recent 3v3 mode W-L and most-lost brawlers to tell me exactly why I am losing competitive games and what to change." },
-        { label: "Honest Ranked Roast", q: "Roast my Ranked readiness brutally using my real Lv 11 pool, incomplete kits, and 3v3 stats, then give me 2 fast Ranked fixes." },
+        { icon: "⚡", label: "Full Ranked Audit", sub: "Deep Lv 11, kit & 3v3 breakdown", q: "" },
+        { icon: "⬆", label: "Who to Max Next?", sub: "Top 3 Ranked carries + Coin/PP costs", q: "For competitive Ranked ONLY, based on my Lv 9-10 brawlers, exact Coin/PP costs, and the current S-tier meta, which exact 3 brawlers should I max to Lv 11 next, with what Pro Build, and why?" },
+        { icon: "🛡", label: "Ranked Role Gaps", sub: "Audit all 7 official brawler classes", q: "Audit my Level 11 role coverage across all 7 official classes in detail and tell me which missing roles are hurting me most in Ranked drafts and who to max to fix each gap." },
+        { icon: "🔥", label: "Fix My 3v3 Losses", sub: "Diagnose losing modes & draft mistakes", q: "Break down my recent 3v3 mode W-L and most-lost brawlers in detail to tell me exactly why I am losing competitive games, what mistakes to stop making, and what to draft instead." },
+        { icon: "💀", label: "Honest Ranked Roast", sub: "Brutal audit + 3 fast Ranked fixes", q: "Roast my Ranked readiness brutally using my real Lv 11 pool, incomplete kits, and 3v3 stats, then give me 3 concrete Ranked fixes." },
       ];
 
+  // Build Graphical Readiness Dashboard for Player
+  let visualDashHtml = "";
+  if (!isClub) {
+    const brawlers = p.brawlers || [];
+    const p11List = brawlers.filter((b) => b.power >= 11);
+    const fullKit11 = p11List.filter((b) => (b.star_powers || 0) >= 1 && (b.gadgets || 0) >= 1 && (b.gears || 0) >= 2).length;
+    const kitPct = p11List.length ? Math.round((fullKit11 / p11List.length) * 100) : 0;
+    const p11Pct = Math.min(100, Math.round((p11List.length / 30) * 100));
+    const bs = p.battle_stats || {};
+    const wr = bs.win_rate != null ? Math.round(bs.win_rate) : null;
+    const spRate = bs.star_player_rate != null ? Math.round(bs.star_player_rate) : 0;
+    const bm = p.community_benchmark || {};
+
+    const spotlight = [
+      ...p11List.slice().sort((a, b) => (b.trophies || 0) - (a.trophies || 0)).slice(0, 6),
+      ...brawlers.filter((b) => b.power === 10 || b.power === 9).sort((a, b) => b.power - a.power || (b.trophies || 0) - (a.trophies || 0)).slice(0, 4),
+    ];
+
+    visualDashHtml = `
+      <div class="coach-visual-dash">
+        <div class="cvd-gauges">
+          <div class="cvd-gauge-card">
+            <div class="cvd-g-top">
+              <span>⚡ RANKED READY (LV 11)</span>
+              <strong class="green-text">${p11List.length} / 30${bm.lv11_top_pct != null ? ` • Top ${bm.lv11_top_pct}%` : ""}</strong>
+            </div>
+            <div class="cvd-bar-track"><div class="cvd-bar-fill cvd-green" style="width:${p11Pct}%"></div></div>
+            <div class="cvd-g-sub">Only Power 11 brawlers can be drafted in Ranked</div>
+          </div>
+
+          <div class="cvd-gauge-card">
+            <div class="cvd-g-top">
+              <span>🎯 RECENT 3v3 WIN RATE</span>
+              <strong class="${(wr ?? 50) >= 55 ? "green-text" : "red-text"}">${wr != null ? `${wr}%` : "N/A"}</strong>
+            </div>
+            <div class="cvd-bar-track"><div class="cvd-bar-fill ${(wr ?? 50) >= 55 ? "cvd-blue" : "cvd-red"}" style="width:${wr ?? 0}%"></div></div>
+            <div class="cvd-g-sub">${bs.wins || 0}W - ${bs.losses || 0}L • ${spRate}% Star Player rate</div>
+          </div>
+
+          <div class="cvd-gauge-card">
+            <div class="cvd-g-top">
+              <span>⚙ LV 11 FULL KITS</span>
+              <strong class="gold-text">${fullKit11} / ${p11List.length} (${kitPct}%)</strong>
+            </div>
+            <div class="cvd-bar-track"><div class="cvd-bar-fill cvd-gold" style="width:${kitPct}%"></div></div>
+            <div class="cvd-g-sub">SP + Gadget + 2 Gears equipped on maxed brawlers</div>
+          </div>
+        </div>
+
+        ${
+          spotlight.length
+            ? `<div class="cvd-roster-strip">
+                <span class="cvd-strip-label">ROSTER SNAPSHOT</span>
+                <div class="cvd-avatars-row">
+                  ${spotlight
+                    .map((b) => {
+                      const img = BV.resolvePortraitUrl("", b.id);
+                      const isMax = b.power >= 11;
+                      return `
+                        <button type="button" class="cvd-brawler-chip ${isMax ? "cvd-max" : "cvd-near"}" data-ask-brawler="${BV.esc(b.name)}" title="Ask Vault AI about ${BV.esc(b.name)}">
+                          <img src="${img}" alt="${BV.esc(b.name)}" loading="lazy" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.id}.png'" />
+                          <span class="cvd-lv-tag ${isMax ? "lv-11" : "lv-near"}">LV ${b.power}</span>
+                        </button>
+                      `;
+                    })
+                    .join("")}
+                </div>
+              </div>`
+            : ""
+        }
+      </div>
+    `;
+  }
+
   slot.innerHTML = `
-    <section class="panel ai-coach-panel dyn-fade">
+    <section class="panel ai-coach-panel ai-coach-v2 dyn-fade">
       <div class="coaching-header">
         <div>
-          <div class="verdict-eyebrow">✦ INTERACTIVE VAULT AI COACH</div>
-          <h3 class="brawl-title coaching-heading">Ask About ${BV.esc(p.name)}</h3>
+          <div class="verdict-eyebrow">✦ VAULT AI RANKED COACH</div>
+          <h3 class="brawl-title coaching-heading">Coaching Hub • ${BV.esc(p.name)}</h3>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <button type="button" id="coach-new-chat-btn" class="btn btn-ghost btn-sm">+ New Chat</button>
@@ -900,24 +974,36 @@ function renderCoachTabContent() {
         </div>
       </div>
 
+      ${visualDashHtml}
+
       <div id="coach-history-bar" class="coach-history-bar hidden"></div>
 
-      <div class="ai-coach-prompts">
+      <div class="coach-prompt-cards">
         ${prompts
-          .map((pr) => `<button type="button" class="filter-pill coach-prompt-btn" data-q="${BV.esc(pr.q)}">${BV.esc(pr.label)}</button>`)
+          .map(
+            (pr) => `
+              <button type="button" class="coach-prompt-card coach-prompt-btn" data-q="${BV.esc(pr.q)}">
+                <span class="cpc-icon">${pr.icon}</span>
+                <span class="cpc-text">
+                  <strong>${BV.esc(pr.label)}</strong>
+                  <small>${BV.esc(pr.sub)}</small>
+                </span>
+              </button>
+            `
+          )
           .join("")}
       </div>
 
-      <form id="coach-ask-form" class="tag-input-row">
+      <form id="coach-ask-form" class="tag-input-row coach-composer-v2">
         <input
           type="text"
           id="coach-question-input"
           class="search-input tag-field"
           style="text-transform:none;"
           maxlength="380"
-          placeholder="Ask anything — e.g. 'Should I max Surge or Piper next?' or follow up on the last answer..."
+          placeholder="Ask Vault AI anything — e.g. 'Build my best Gem Grab & Bounty draft pool' or click any brawler icon above..."
         />
-        <button type="submit" id="coach-ask-btn" class="btn btn-gold">Ask AI Coach</button>
+        <button type="submit" id="coach-ask-btn" class="btn btn-gold">Ask Vault AI →</button>
       </form>
 
       <div id="coach-feed" class="overview-stack"></div>
@@ -936,6 +1022,14 @@ function renderCoachTabContent() {
     btn.addEventListener("click", () => {
       const q = btn.dataset.q || "";
       askAiCoach(q);
+    });
+  });
+  document.querySelectorAll("[data-ask-brawler]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const bName = btn.dataset.askBrawler;
+      if (bName) {
+        askAiCoach(`Give me a detailed Ranked guide for my ${bName}: best maps/modes, exact Pro Build (Star Power, Gadget, Gears), best matchups & counters, and whether I should prioritize upgrading or playing ${bName} in Ranked.`);
+      }
     });
   });
 
@@ -1018,32 +1112,105 @@ function renderCoachWorkspace() {
   renderCoachTabContent();
 }
 
+function extractMentionedBrawlersHtml(text) {
+  const brawlers = COACH_STATE.profile?.brawlers || [];
+  if (!text || !brawlers.length) return "";
+  const upper = text.toUpperCase();
+  const found = [];
+  const seen = new Set();
+  for (const b of brawlers) {
+    const nm = (b.name || "").toUpperCase();
+    if (!nm || nm.length < 3 || seen.has(nm)) continue;
+    // Word-boundary check so short names don't falsely match inside other words
+    const escRe = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`(^|[^A-Z0-9])${escRe}([^A-Z0-9]|$)`).test(upper)) {
+      seen.add(nm);
+      found.push(b);
+      if (found.length >= 8) break;
+    }
+  }
+  if (!found.length) return "";
+  return `
+    <div class="ai-mentioned-strip">
+      <div class="ai-mentioned-label">REFERENCED BRAWLERS</div>
+      <div class="ai-mentioned-cards">
+        ${found
+          .map((b) => {
+            const img = BV.resolvePortraitUrl("", b.id);
+            const isMax = b.power >= 11;
+            return `
+              <div class="ai-mb-card ${isMax ? "mb-ready" : "mb-locked"}">
+                <img src="${img}" alt="${BV.esc(b.name)}" loading="lazy" onerror="this.src='https://cdn.brawlify.com/brawlers/borderless/${b.id}.png'" />
+                <div class="ai-mb-info">
+                  <strong>${BV.esc(b.name)}</strong>
+                  <span>${isMax ? "✓ LV 11 Ranked" : `LV ${b.power} (Needs 11)`}</span>
+                </div>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderCoachFeed() {
   const feed = document.getElementById("coach-feed");
   if (!feed) return;
   if (!COACH_STATE.messages.length) {
-    feed.innerHTML = `<div class="ai-coach-output"><div class="muted-tag">New chat — pick a quick prompt above or ask any question below.</div></div>`;
+    feed.innerHTML = `
+      <div class="ai-coach-output ai-coach-welcome-card">
+        <div class="ai-welcome-icon">✦</div>
+        <div>
+          <strong>Vault AI Coach is ready.</strong>
+          <p class="muted-tag" style="margin:4px 0 0;">Click any visual prompt card or brawler portrait above, or type your own Ranked question below.</p>
+        </div>
+      </div>
+    `;
     return;
   }
   feed.innerHTML = COACH_STATE.messages
     .map(
-      (msg) => `
-        <div class="ai-coach-output dyn-fade">
+      (msg, idx) => `
+        <div class="ai-coach-output ai-coach-card-v2 dyn-fade">
           <div class="coach-msg-head">
-            <div class="verdict-eyebrow">${BV.esc(msg.title)}</div>
-            ${msg.ts ? `<span class="coach-msg-time">${BV.esc(formatRelTime(msg.ts))}</span>` : ""}
+            <div class="coach-msg-title-wrap">
+              <span class="vault-ai-pill">✦ VAULT AI</span>
+              <div class="verdict-eyebrow" style="margin:0;">${BV.esc(msg.title)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${msg.ts ? `<span class="coach-msg-time">${BV.esc(formatRelTime(msg.ts))}</span>` : ""}
+              ${!msg.loading && msg.text ? `<button type="button" class="btn btn-ghost btn-sm coach-copy-btn" data-copy-idx="${idx}" style="padding:3px 9px;font-size:11px;">Copy</button>` : ""}
+            </div>
           </div>
           ${
             msg.loading
-              ? `<div class="muted-tag">Analyzing live stats &amp; meta with Vault AI...</div>`
+              ? `<div class="ai-loading-pulse"><span class="pulse-dot"></span>Analyzing your live roster, Power 11 kits &amp; Ranked meta with Vault AI...</div>`
               : msg.error
                 ? `<div class="muted-tag">${BV.esc(msg.error)}</div>`
-                : `<div class="ai-coach-prose">${formatCoachMarkdown(msg.text)}</div>`
+                : `
+                  ${extractMentionedBrawlersHtml(msg.text)}
+                  <div class="ai-coach-prose">${formatCoachMarkdown(msg.text)}</div>
+                `
           }
         </div>
       `
     )
     .join("");
+
+  feed.querySelectorAll(".coach-copy-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const m = COACH_STATE.messages[Number(btn.dataset.copyIdx)];
+      if (!m?.text) return;
+      try {
+        await navigator.clipboard.writeText(m.text);
+        btn.textContent = "Copied ✓";
+        setTimeout(() => { btn.textContent = "Copy"; }, 1400);
+      } catch {
+        // ignore clipboard denial
+      }
+    });
+  });
 }
 
 async function askAiCoach(question = "") {
